@@ -5,8 +5,7 @@ use std::{cell::RefCell, rc::Rc};
 use gdk_pixbuf::{glib::subclass::types::ObjectSubclassIsExt, Pixbuf};
 use gtk::glib;
 use relm4::{
-    gtk::{self, prelude::WidgetExt},
-    Sender,
+    Sender, gtk::{self, prelude::WidgetExt, subclass::prelude::GLAreaImpl}
 };
 
 use crate::{
@@ -93,5 +92,14 @@ impl FemtoVGArea {
     ) {
         self.imp()
             .init(sender, crop_tool, active_tool, background_image);
+    }
+
+    pub fn zoom(&self, factor: f32) {
+        self.imp()
+            .inner()
+            .as_mut()
+            .expect("Did you call init before using FemtoVgArea?")
+            .set_zoom_scale(factor);
+        self.imp().resize(0, 0);
     }
 }

@@ -44,6 +44,7 @@ pub struct FemtoVgAreaMut {
     offset: Vec2D,
     drawables: Vec<Box<dyn Drawable>>,
     redo_stack: Vec<Box<dyn Drawable>>,
+    zoom_scale: f32,
 }
 
 #[glib::object_subclass]
@@ -80,9 +81,12 @@ impl GLAreaImpl for FemtoVGArea {
         let mut bc = self.canvas.borrow_mut();
         let canvas = bc.as_mut().unwrap(); // this unwrap is safe as long as we call "ensure_canvas" before
 
+        let w = canvas.width();
+        let h = canvas.height();
+
         canvas.set_size(
-            width as u32,
-            height as u32,
+            if width == 0 { w } else { width as u32 },
+            if height == 0 { h } else { height as u32 },
             self.obj().scale_factor() as f32,
         );
 
@@ -96,7 +100,7 @@ impl GLAreaImpl for FemtoVGArea {
         self.ensure_canvas();
 
         let mut bc = self.canvas.borrow_mut();
-        let canvas = bc.as_mut().unwrap(); // this unwrap is safe as long as we call "ensure_canvas" before
+        let canvas: &mut Canvas<renderer::OpenGl> = bc.as_mut().unwrap(); // this unwrap is safe as long as we call "ensure_canvas" before
         let font = self.font.borrow().unwrap(); // this unwrap is safe as long as we call "ensure_canvas" before
         let mut actions = self.request_render.borrow_mut();
 
@@ -154,6 +158,7 @@ impl FemtoVGArea {
             offset: Vec2D::zero(),
             drawables: Vec::new(),
             redo_stack: Vec::new(),
+            zoom_scale: 0.0,
         });
         self.sender.borrow_mut().replace(sender);
     }
@@ -524,11 +529,17 @@ impl FemtoVgAreaMut {
         let canvas_width = canvas.width() as f32;
         let canvas_height = canvas.height() as f32;
 
-        self.scale_factor = if canvas_width / aspect_ratio <= canvas_height {
-            canvas_width / aspect_ratio / image_height
+        if self.zoom_scale != 0.0 {
+            self.scale_factor = self.zoom_scale;
+            eprintln!("zoom scale applied: {}", self.scale_factor);
         } else {
-            canvas_height * aspect_ratio / image_width
-        };
+            self.scale_factor = if canvas_width / aspect_ratio <= canvas_height {
+                canvas_width / aspect_ratio / image_height
+            } else {
+                canvas_height * aspect_ratio / image_width
+            };
+        }
+        // self.scale_factor = 1.0;
 
         // calculate offset
         self.offset = Vec2D::new(
@@ -550,5 +561,15 @@ impl FemtoVgAreaMut {
             input.x * dpi_scale_factor / self.scale_factor,
             input.y * dpi_scale_factor / self.scale_factor,
         )
+    }
+
+    pub fn set_zoom_scale(&mut self, factor: f32) {
+        self.zoom_scale += factor;
+        self.zoom_scale = self.zoom_scale.max(0.);
+        eprintln!("set zoom scale: {}", self.zoom_scale);
+    }
+
+    pub fn reset_zoom_scale(&mut self) {
+        self.zoom_scale = 0.0;
     }
 }
