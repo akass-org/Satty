@@ -52,6 +52,7 @@ pub enum ToolbarEvent {
     AnnotationSizeChanged(f32),
     Reset,
     SaveFileAs,
+    Resize,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -113,7 +114,14 @@ impl SimpleComponent for ToolsToolbar {
             #[watch]
             set_visible: model.visible,
 
+            gtk::Button {
+                set_focusable: false,
+                set_hexpand: false,
 
+                set_icon_name: "recycling-bin",
+                set_tooltip: "Resize",
+                connect_clicked[sender] => move |_| {sender.output_sender().emit(ToolbarEvent::Resize);},
+            },
             gtk::Button {
                 set_focusable: false,
                 set_hexpand: false,

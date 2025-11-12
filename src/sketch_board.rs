@@ -510,6 +510,12 @@ impl SketchBoard {
         }
     }
 
+    fn handle_resize(&mut self) -> ToolUpdateResult {
+        self.renderer.reset_size();
+        self.renderer.request_render(&APP_CONFIG.read().actions_on_right_click());
+        ToolUpdateResult::Unmodified
+    }
+
     // Toolbars = Tools Toolbar + Style Toolbar
     fn handle_toggle_toolbars_display(
         &mut self,
@@ -594,6 +600,7 @@ impl SketchBoard {
                     .handle_event(ToolEvent::StyleChanged(self.style))
             }
             ToolbarEvent::SaveFileAs => self.handle_action(&[Action::SaveToFileAs]),
+            ToolbarEvent::Resize => self.handle_resize(),
         }
     }
 

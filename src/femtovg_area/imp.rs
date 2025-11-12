@@ -631,6 +631,11 @@ impl FemtoVgAreaMut {
         self.drag_offset = self.last_offset + offset;
     }
 
+    pub fn reset_drag_offset(&mut self) {
+        self.drag_offset = Vec2D::zero();
+        self.store_last_offset();
+    }
+
     pub fn store_last_offset(&mut self) {
         self.last_offset = self.drag_offset;
     }

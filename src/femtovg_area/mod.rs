@@ -139,4 +139,18 @@ impl FemtoVGArea {
             .expect("Did you call init before using FemtoVgArea?")
             .set_is_drag(is_drag);
     }
+
+    pub fn reset_size(&self) {
+        self.imp()
+            .inner()
+            .as_mut()
+            .expect("Did you call init before using FemtoVgArea?")
+            .reset_zoom_scale();
+        self.imp()
+            .inner()
+            .as_mut()
+            .expect("Did you call init before using FemtoVgArea?")
+            .reset_drag_offset();
+        self.imp().resize(0, 0);
+    }
 }
