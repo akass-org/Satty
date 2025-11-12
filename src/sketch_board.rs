@@ -161,19 +161,27 @@ impl InputEvent {
                 }
                 MouseEventType::BeginDrag => {
                     me.pos = renderer.abs_canvas_to_image_coordinates(me.pos);
-                    //todo
                     None
                 }
                 MouseEventType::EndDrag | MouseEventType::UpdateDrag => {
-                    me.pos = renderer.rel_canvas_to_image_coordinates(me.pos);
+                    if me.button == MouseButton::Middle {
+                        renderer.move_offset(me.pos);
+
+                        if me.type_ == MouseEventType::EndDrag {
+                            renderer.store_last_offset();
+                        }
+                        renderer.request_render(&APP_CONFIG.read().actions_on_right_click());
+                    } else {
+                        me.pos = renderer.rel_canvas_to_image_coordinates(me.pos);
+                    }
                     None
                 }
                 MouseEventType::Scroll => {
                     eprintln!("handle_scroll_event");
                     //todo
                     match me.pos.y {
-                        v if v < 0.0 => renderer.zoom(-0.1f32),
-                        v if v > 0.0 => renderer.zoom(0.1f32),
+                        v if v < 0.0 => renderer.zoom(0.1f32),
+                        v if v > 0.0 => renderer.zoom(-0.1f32),
                         _ => {}
                     }
                     renderer.request_render(&APP_CONFIG.read().actions_on_right_click());

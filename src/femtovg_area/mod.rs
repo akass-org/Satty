@@ -100,6 +100,25 @@ impl FemtoVGArea {
             .as_mut()
             .expect("Did you call init before using FemtoVgArea?")
             .set_zoom_scale(factor);
+        //trigger resize to recalculate zoom
         self.imp().resize(0, 0);
+    }
+
+    pub fn move_offset(&self, offset: Vec2D) {
+        self.imp()
+            .inner()
+            .as_mut()
+            .expect("Did you call init before using FemtoVgArea?")
+            .set_move_offset(offset);
+        //trigger resize to recalculate offset
+        self.imp().resize(0, 0);
+    }
+
+    pub fn store_last_offset(&self) {
+        self.imp()
+            .inner()
+            .as_mut()
+            .expect("Did you call init before using FemtoVgArea?")
+            .store_last_offset();
     }
 }

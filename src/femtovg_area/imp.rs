@@ -45,6 +45,8 @@ pub struct FemtoVgAreaMut {
     drawables: Vec<Box<dyn Drawable>>,
     redo_stack: Vec<Box<dyn Drawable>>,
     zoom_scale: f32,
+    move_offset: Vec2D,
+    last_offset: Vec2D,
 }
 
 #[glib::object_subclass]
@@ -159,6 +161,8 @@ impl FemtoVGArea {
             drawables: Vec::new(),
             redo_stack: Vec::new(),
             zoom_scale: 0.0,
+            move_offset: Vec2D::zero(),
+            last_offset: Vec2D::zero(),
         });
         self.sender.borrow_mut().replace(sender);
     }
@@ -544,9 +548,9 @@ impl FemtoVgAreaMut {
         // calculate offset
         self.offset = Vec2D::new(
             (canvas.width() as f32 - self.background_image.width() as f32 * self.scale_factor)
-                / 2.0,
+                / 2.0 + self.move_offset.x,
             (canvas.height() as f32 - self.background_image.height() as f32 * self.scale_factor)
-                / 2.0,
+                / 2.0 + self.move_offset.y,
         );
     }
 
@@ -571,5 +575,14 @@ impl FemtoVgAreaMut {
 
     pub fn reset_zoom_scale(&mut self) {
         self.zoom_scale = 0.0;
+    }
+
+    pub fn set_move_offset(&mut self, offset: Vec2D) {
+        self.move_offset = self.last_offset + offset;
+        eprintln!("set move offset: ({}, {})", self.move_offset.x, self.move_offset.y);
+    }
+
+    pub fn store_last_offset(&mut self) {
+        self.last_offset = self.move_offset;
     }
 }
