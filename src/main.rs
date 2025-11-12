@@ -87,7 +87,10 @@ impl App {
         let monitor_size = match Self::get_monitor_size(root) {
             Some(s) => s,
             None => {
-                root.set_default_size((self.image_dimensions.0 as f32 / scale) as i32, (self.image_dimensions.1 as f32 / scale) as i32);
+                root.set_default_size(
+                    (self.image_dimensions.0 as f32 / scale) as i32,
+                    (self.image_dimensions.1 as f32 / scale) as i32,
+                );
                 return;
             }
         };
