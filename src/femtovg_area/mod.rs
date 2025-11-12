@@ -103,7 +103,7 @@ impl FemtoVGArea {
             .set_zoom_scale(factor);
         //trigger resize to recalculate zoom
         self.imp().resize(0, 0);
-        self.store_last_offset();
+        // self.store_last_offset();
     }
 
     pub fn set_pointer_offset(&self, offset: Vec2D) {
@@ -114,12 +114,12 @@ impl FemtoVGArea {
             .set_pointer_offset(offset * self.scale_factor() as f32);
     }
 
-    pub fn set_offset(&self, offset: Vec2D) {
+    pub fn set_drag_offset(&self, offset: Vec2D) {
         self.imp()
             .inner()
             .as_mut()
             .expect("Did you call init before using FemtoVgArea?")
-            .set_offset(offset);
+            .set_drag_offset(offset * self.scale_factor() as f32);
         //trigger resize to recalculate offset
         self.imp().resize(0, 0);
     }
@@ -130,5 +130,13 @@ impl FemtoVGArea {
             .as_mut()
             .expect("Did you call init before using FemtoVgArea?")
             .store_last_offset();
+    }
+
+    pub fn set_is_drag(&self, is_drag: bool) {
+        self.imp()
+            .inner()
+            .as_mut()
+            .expect("Did you call init before using FemtoVgArea?")
+            .set_is_drag(is_drag);
     }
 }

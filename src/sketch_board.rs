@@ -165,10 +165,12 @@ impl InputEvent {
                 }
                 MouseEventType::EndDrag | MouseEventType::UpdateDrag => {
                     if me.button == MouseButton::Middle {
-                        renderer.set_offset(me.pos);
+                        renderer.set_drag_offset(me.pos);
+                        renderer.set_is_drag(true);
 
                         if me.type_ == MouseEventType::EndDrag {
                             renderer.store_last_offset();
+                            renderer.set_is_drag(false);
                         }
                         renderer.request_render(&APP_CONFIG.read().actions_on_right_click());
                     } else {
