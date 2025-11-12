@@ -177,7 +177,6 @@ impl InputEvent {
                     None
                 }
                 MouseEventType::Scroll => {
-                    eprintln!("handle_scroll_event");
                     //todo
                     match me.pos.y {
                         v if v < 0.0 => renderer.zoom(0.1f32),
@@ -188,7 +187,6 @@ impl InputEvent {
                     None
                 }
                 MouseEventType::PointerPos => {
-                    eprintln!("handle_scroll_pos_event");
                     renderer.zoom_offset(me.pos);
                     None
                 }

@@ -102,6 +102,7 @@ impl FemtoVGArea {
             .set_zoom_scale(factor);
         //trigger resize to recalculate zoom
         self.imp().resize(0, 0);
+        self.store_last_offset();
     }
 
     pub fn zoom_offset(&self,offset: Vec2D) {
@@ -109,7 +110,7 @@ impl FemtoVGArea {
             .inner()
             .as_mut()
             .expect("Did you call init before using FemtoVgArea?")
-            .set_zoom_offset(offset)
+            .set_zoom_offset(offset * self.scale_factor() as f32);
     }
 
     pub fn move_offset(&self, offset: Vec2D) {
