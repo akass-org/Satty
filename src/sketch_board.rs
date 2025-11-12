@@ -165,7 +165,7 @@ impl InputEvent {
                 }
                 MouseEventType::EndDrag | MouseEventType::UpdateDrag => {
                     if me.button == MouseButton::Middle {
-                        renderer.move_offset(me.pos);
+                        renderer.set_offset(me.pos);
 
                         if me.type_ == MouseEventType::EndDrag {
                             renderer.store_last_offset();
@@ -179,15 +179,15 @@ impl InputEvent {
                 MouseEventType::Scroll => {
                     //todo
                     match me.pos.y {
-                        v if v < 0.0 => renderer.zoom(0.1f32),
-                        v if v > 0.0 => renderer.zoom(-0.1f32),
+                        v if v < 0.0 => renderer.set_zoom_scale(1.1f32),
+                        v if v > 0.0 => renderer.set_zoom_scale(1f32 / 1.1f32),
                         _ => {}
                     }
                     renderer.request_render(&APP_CONFIG.read().actions_on_right_click());
                     None
                 }
                 MouseEventType::PointerPos => {
-                    renderer.zoom_offset(me.pos);
+                    renderer.set_pointer_offset(me.pos);
                     None
                 }
             }

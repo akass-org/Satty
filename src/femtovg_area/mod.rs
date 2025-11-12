@@ -5,7 +5,8 @@ use std::{cell::RefCell, rc::Rc};
 use gdk_pixbuf::{glib::subclass::types::ObjectSubclassIsExt, Pixbuf};
 use gtk::glib;
 use relm4::{
-    Sender, gtk::{self, prelude::WidgetExt, subclass::prelude::GLAreaImpl}
+    gtk::{self, prelude::WidgetExt, subclass::prelude::GLAreaImpl},
+    Sender,
 };
 
 use crate::{
@@ -94,7 +95,7 @@ impl FemtoVGArea {
             .init(sender, crop_tool, active_tool, background_image);
     }
 
-    pub fn zoom(&self, factor: f32) {
+    pub fn set_zoom_scale(&self, factor: f32) {
         self.imp()
             .inner()
             .as_mut()
@@ -105,20 +106,20 @@ impl FemtoVGArea {
         self.store_last_offset();
     }
 
-    pub fn zoom_offset(&self,offset: Vec2D) {
+    pub fn set_pointer_offset(&self, offset: Vec2D) {
         self.imp()
             .inner()
             .as_mut()
             .expect("Did you call init before using FemtoVgArea?")
-            .set_zoom_offset(offset * self.scale_factor() as f32);
+            .set_pointer_offset(offset * self.scale_factor() as f32);
     }
 
-    pub fn move_offset(&self, offset: Vec2D) {
+    pub fn set_offset(&self, offset: Vec2D) {
         self.imp()
             .inner()
             .as_mut()
             .expect("Did you call init before using FemtoVgArea?")
-            .set_move_offset(offset);
+            .set_offset(offset);
         //trigger resize to recalculate offset
         self.imp().resize(0, 0);
     }
