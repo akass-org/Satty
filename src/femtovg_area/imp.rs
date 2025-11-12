@@ -537,7 +537,7 @@ impl FemtoVgAreaMut {
 
         if self.zoom_scale != 0.0 {
             self.scale_factor = self.zoom_scale;
-            eprintln!("zoom scale applied: {}", self.scale_factor);
+            // eprintln!("zoom scale applied: {}", self.scale_factor);
         } else {
             self.scale_factor = if canvas_width / aspect_ratio <= canvas_height {
                 canvas_width / aspect_ratio / image_height
@@ -545,14 +545,15 @@ impl FemtoVgAreaMut {
                 canvas_height * aspect_ratio / image_width
             };
         }
-        // self.scale_factor = 1.0;
 
         // calculate offset
         self.offset = Vec2D::new(
             (canvas.width() as f32 - self.background_image.width() as f32 * self.scale_factor)
-                / 2.0 + self.move_offset.x,
+                / 2.0
+                + self.move_offset.x,
             (canvas.height() as f32 - self.background_image.height() as f32 * self.scale_factor)
-                / 2.0 + self.move_offset.y,
+                / 2.0
+                + self.move_offset.y,
         );
     }
 
@@ -570,9 +571,12 @@ impl FemtoVgAreaMut {
     }
 
     pub fn set_zoom_scale(&mut self, factor: f32) {
+        if self.zoom_scale == 0.0 {
+            self.zoom_scale = self.scale_factor;
+        }
         self.zoom_scale += factor;
         self.zoom_scale = self.zoom_scale.max(0.);
-        eprintln!("set zoom scale: {}", self.zoom_scale);
+        // eprintln!("set zoom scale: {}", self.zoom_scale);
     }
 
     pub fn reset_zoom_scale(&mut self) {
@@ -581,12 +585,18 @@ impl FemtoVgAreaMut {
 
     pub fn set_zoom_offset(&mut self, offset: Vec2D) {
         self.zoom_offset = offset;
-        eprintln!("set zoom offset: ({}, {})", self.zoom_offset.x, self.zoom_offset.y);
+        // eprintln!(
+        //     "set zoom offset: ({}, {})",
+        //     self.zoom_offset.x, self.zoom_offset.y
+        // );
     }
 
     pub fn set_move_offset(&mut self, offset: Vec2D) {
         self.move_offset = self.last_offset + offset;
-        eprintln!("set move offset: ({}, {})", self.move_offset.x, self.move_offset.y);
+        // eprintln!(
+        //     "set move offset: ({}, {})",
+        //     self.move_offset.x, self.move_offset.y
+        // );
     }
 
     pub fn store_last_offset(&mut self) {
