@@ -53,6 +53,7 @@ pub enum ToolbarEvent {
     Reset,
     SaveFileAs,
     Resize,
+    OriginalScale,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -114,6 +115,14 @@ impl SimpleComponent for ToolsToolbar {
             #[watch]
             set_visible: model.visible,
 
+            gtk::Button {
+                set_focusable: false,
+                set_hexpand: false,
+
+                set_icon_name: "recycling-bin",
+                set_tooltip: "1:1",
+                connect_clicked[sender] => move |_| {sender.output_sender().emit(ToolbarEvent::OriginalScale);},
+            },
             gtk::Button {
                 set_focusable: false,
                 set_hexpand: false,

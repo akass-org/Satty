@@ -140,12 +140,12 @@ impl FemtoVGArea {
             .set_is_drag(is_drag);
     }
 
-    pub fn reset_size(&self) {
+    pub fn reset_size(&self, factor: f32) {
         self.imp()
             .inner()
             .as_mut()
             .expect("Did you call init before using FemtoVgArea?")
-            .reset_zoom_scale();
+            .set_zoom_scale(factor);
         self.imp()
             .inner()
             .as_mut()

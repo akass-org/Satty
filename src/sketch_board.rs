@@ -511,8 +511,16 @@ impl SketchBoard {
     }
 
     fn handle_resize(&mut self) -> ToolUpdateResult {
-        self.renderer.reset_size();
-        self.renderer.request_render(&APP_CONFIG.read().actions_on_right_click());
+        self.renderer.reset_size(0.);
+        self.renderer
+            .request_render(&APP_CONFIG.read().actions_on_right_click());
+        ToolUpdateResult::Unmodified
+    }
+
+    fn handle_original_scale(&mut self) -> ToolUpdateResult {
+        self.renderer.reset_size(1.);
+        self.renderer
+            .request_render(&APP_CONFIG.read().actions_on_right_click());
         ToolUpdateResult::Unmodified
     }
 
@@ -601,6 +609,7 @@ impl SketchBoard {
             }
             ToolbarEvent::SaveFileAs => self.handle_action(&[Action::SaveToFileAs]),
             ToolbarEvent::Resize => self.handle_resize(),
+            ToolbarEvent::OriginalScale => self.handle_original_scale(),
         }
     }
 

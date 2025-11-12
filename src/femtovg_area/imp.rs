@@ -531,7 +531,6 @@ impl FemtoVgAreaMut {
         &mut self,
         canvas: &mut femtovg::Canvas<femtovg::renderer::OpenGl>,
     ) {
-        // calculate scale
         let image_width = self.background_image.width() as f32;
         let image_height = self.background_image.height() as f32;
         let aspect_ratio = image_width / image_height;
@@ -541,13 +540,38 @@ impl FemtoVgAreaMut {
 
         let prev_scale = self.scale_factor;
 
-        let mut scale_changed = false;
+        // 更新 scale_factor
         if self.zoom_scale != 0.0 {
             if self.zoom_scale != self.last_scale {
                 self.last_scale = self.zoom_scale;
-                scale_changed = true;
+                self.scale_factor = self.zoom_scale;
+
+                if self.drag_offset.is_zero() {
+                    // 居中
+                    self.offset = Vec2D::new(
+                        (canvas_width - image_width * self.scale_factor) / 2.0,
+                        (canvas_height - image_height * self.scale_factor) / 2.0,
+                    );
+                } else {
+                    // 以 pointer 为中心计算 offset
+                    let pointer_offset = self.pointer_offset;
+                    let zoom_offset = Vec2D::new(
+                        (pointer_offset.x - self.offset.x) / prev_scale,
+                        (pointer_offset.y - self.offset.y) / prev_scale,
+                    );
+                    self.offset = pointer_offset - zoom_offset * self.scale_factor;
+
+                    // 更新 drag_offset
+                    let center_offset = Vec2D::new(
+                        (canvas_width - image_width * self.scale_factor) / 2.0,
+                        (canvas_height - image_height * self.scale_factor) / 2.0,
+                    );
+                    self.drag_offset = self.offset - center_offset;
+                    self.store_last_offset();
+                }
+            } else {
+                self.scale_factor = self.zoom_scale;
             }
-            self.scale_factor = self.zoom_scale;
         } else {
             self.scale_factor = if canvas_width / aspect_ratio <= canvas_height {
                 canvas_width / aspect_ratio / image_height
@@ -556,40 +580,18 @@ impl FemtoVgAreaMut {
             };
         }
 
-        if scale_changed {
-            let pointer_offset = self.pointer_offset;
-
-            let zoom_offset = Vec2D::new(
-                (pointer_offset.x - self.offset.x) / prev_scale,
-                (pointer_offset.y - self.offset.y) / prev_scale,
-            );
-            // calculate offset
+        // 最终 offset = 中心 + drag_offset（如果 drag_offset 为 0，则居中）
+        if self.drag_offset.is_zero() {
             self.offset = Vec2D::new(
-                pointer_offset.x - zoom_offset.x * self.scale_factor,
-                pointer_offset.y - zoom_offset.y * self.scale_factor,
+                (canvas_width - image_width * self.scale_factor) / 2.0,
+                (canvas_height - image_height * self.scale_factor) / 2.0,
             );
-
-            let offset = Vec2D::new(
-                (canvas.width() as f32 - self.background_image.width() as f32 * self.scale_factor)
-                    / 2.0,
-                (canvas.height() as f32
-                    - self.background_image.height() as f32 * self.scale_factor)
-                    / 2.0,
-            );
-
-            self.drag_offset = self.offset - offset;
-            self.store_last_offset();
         } else {
-            // calculate offset
-            self.offset = Vec2D::new(
-                (canvas.width() as f32 - self.background_image.width() as f32 * self.scale_factor)
-                    / 2.0
-                    + self.drag_offset.x,
-                (canvas.height() as f32
-                    - self.background_image.height() as f32 * self.scale_factor)
-                    / 2.0
-                    + self.drag_offset.y,
+            let center_offset = Vec2D::new(
+                (canvas_width - image_width * self.scale_factor) / 2.0,
+                (canvas_height - image_height * self.scale_factor) / 2.0,
             );
+            self.offset = center_offset + self.drag_offset;
         }
     }
 
@@ -611,16 +613,16 @@ impl FemtoVgAreaMut {
             return;
         }
 
-        if self.zoom_scale == 0.0 {
-            self.zoom_scale = self.scale_factor;
+        if factor == 1. || factor == 0. {
+            self.zoom_scale = factor;
+        } else {
+            if self.zoom_scale == 0.0 {
+                self.zoom_scale = self.scale_factor;
+            }
+
+            self.zoom_scale *= factor;
+            self.zoom_scale = self.zoom_scale.max(0.);
         }
-
-        self.zoom_scale *= factor;
-        self.zoom_scale = self.zoom_scale.max(0.);
-    }
-
-    pub fn reset_zoom_scale(&mut self) {
-        self.zoom_scale = 0.0;
     }
 
     pub fn set_pointer_offset(&mut self, offset: Vec2D) {
