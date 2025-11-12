@@ -83,6 +83,7 @@ pub enum MouseEventType {
     UpdateDrag,
     Click,
     Scroll,
+    PointerPos,
     //Motion(Vec2D),
 }
 
@@ -125,7 +126,6 @@ impl SketchBoardInput {
     }
 
     pub fn new_scroll_event(delta_y: f64) -> SketchBoardInput {
-        eprint!("scroll event: {delta_y}");
         SketchBoardInput::InputEvent(InputEvent::Mouse(MouseEventMsg {
             type_: MouseEventType::Scroll,
             button: MouseButton::Middle,
@@ -185,6 +185,11 @@ impl InputEvent {
                         _ => {}
                     }
                     renderer.request_render(&APP_CONFIG.read().actions_on_right_click());
+                    None
+                }
+                MouseEventType::PointerPos => {
+                    eprintln!("handle_scroll_pos_event");
+                    renderer.zoom_offset(me.pos);
                     None
                 }
             }
@@ -703,10 +708,11 @@ impl Component for SketchBoard {
 
                 add_controller = gtk::EventControllerScroll{
                     set_flags: gtk::EventControllerScrollFlags::VERTICAL,
-                    connect_scroll[sender] => move |_, _, dy| {
+                    connect_scroll[sender] => move |controller, _, dy| {
+
                         sender.input(SketchBoardInput::new_scroll_event(dy));
                         glib::Propagation::Stop
-                    }
+                    },
                 },
 
                 add_controller = gtk::GestureClick {
@@ -744,6 +750,17 @@ impl Component for SketchBoard {
                         }
                     },
                     set_im_context: Some(&model.im_context),
+                },
+
+                add_controller = gtk::EventControllerMotion {
+                    connect_motion[sender] => move |controller, x, y| {
+                        sender.input(SketchBoardInput::new_mouse_event(
+                            MouseEventType::PointerPos,
+                            0,
+                            controller.current_event_state(),
+                            Vec2D::new(x as f32, y as f32)
+                        ));
+                    }
                 }
             }
         },

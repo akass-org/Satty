@@ -45,6 +45,7 @@ pub struct FemtoVgAreaMut {
     drawables: Vec<Box<dyn Drawable>>,
     redo_stack: Vec<Box<dyn Drawable>>,
     zoom_scale: f32,
+    zoom_offset: Vec2D,
     move_offset: Vec2D,
     last_offset: Vec2D,
 }
@@ -161,6 +162,7 @@ impl FemtoVGArea {
             drawables: Vec::new(),
             redo_stack: Vec::new(),
             zoom_scale: 0.0,
+            zoom_offset: Vec2D::zero(),
             move_offset: Vec2D::zero(),
             last_offset: Vec2D::zero(),
         });
@@ -575,6 +577,11 @@ impl FemtoVgAreaMut {
 
     pub fn reset_zoom_scale(&mut self) {
         self.zoom_scale = 0.0;
+    }
+
+    pub fn set_zoom_offset(&mut self, offset: Vec2D) {
+        self.zoom_offset = offset;
+        eprintln!("set zoom offset: ({}, {})", self.zoom_offset.x, self.zoom_offset.y);
     }
 
     pub fn set_move_offset(&mut self, offset: Vec2D) {

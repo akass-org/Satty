@@ -104,6 +104,14 @@ impl FemtoVGArea {
         self.imp().resize(0, 0);
     }
 
+    pub fn zoom_offset(&self,offset: Vec2D) {
+        self.imp()
+            .inner()
+            .as_mut()
+            .expect("Did you call init before using FemtoVgArea?")
+            .set_zoom_offset(offset)
+    }
+
     pub fn move_offset(&self, offset: Vec2D) {
         self.imp()
             .inner()

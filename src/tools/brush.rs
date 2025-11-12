@@ -128,7 +128,7 @@ impl Tool for BrushTool {
                 });
                 ToolUpdateResult::Unmodified
             }
-            MouseEventType::Scroll => todo!(),
+            _ => ToolUpdateResult::Unmodified,
         }
     }
 
