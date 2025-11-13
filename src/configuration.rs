@@ -57,6 +57,7 @@ pub struct Configuration {
     brush_smooth_history_size: usize,
     keybinds: Keybinds,
     monitor_scale: f32,
+    zoom_factor: f32,
 }
 
 pub struct Keybinds {
@@ -283,6 +284,9 @@ impl Configuration {
         if let Some(v) = general.monitor_scale {
             self.monitor_scale = v;
         }
+        if let Some(v) = general.zoom_factor {
+            self.zoom_factor = v;
+        }
 
         // --- deprecated options ---
         if let Some(v) = general.right_click_copy {
@@ -385,6 +389,9 @@ impl Configuration {
         }
         if let Some(v) = command_line.monitor_scale {
             self.monitor_scale = v;
+        }
+        if let Some(v) = command_line.zoom_factor {
+            self.zoom_factor = v;
         }
 
         // --- deprecated options ---
@@ -497,6 +504,10 @@ impl Configuration {
     pub fn monitor_scale(&self) -> f32 {
         self.monitor_scale
     }
+
+    pub fn zoom_factor(&self) -> f32 {
+        self.zoom_factor
+    }
 }
 
 impl Default for Configuration {
@@ -526,6 +537,7 @@ impl Default for Configuration {
             brush_smooth_history_size: 0, // default to 0, no history
             keybinds: Keybinds::default(),
             monitor_scale: 1.0,
+            zoom_factor: 1.1,
         }
     }
 }
@@ -599,6 +611,7 @@ struct ConfigurationFileGeneral {
     no_window_decoration: Option<bool>,
     brush_smooth_history_size: Option<usize>,
     monitor_scale: Option<f32>,
+    zoom_factor: Option<f32>,
 
     // --- deprecated options ---
     right_click_copy: Option<bool>,

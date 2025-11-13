@@ -179,10 +179,10 @@ impl InputEvent {
                     None
                 }
                 MouseEventType::Scroll => {
-                    //todo
+                    let factor = APP_CONFIG.read().zoom_factor();
                     match me.pos.y {
-                        v if v < 0.0 => renderer.set_zoom_scale(1.1f32),
-                        v if v > 0.0 => renderer.set_zoom_scale(1f32 / 1.1f32),
+                        v if v < 0.0 => renderer.set_zoom_scale(factor),
+                        v if v > 0.0 => renderer.set_zoom_scale(1f32 / factor),
                         _ => {}
                     }
                     renderer.request_render(&APP_CONFIG.read().actions_on_right_click());

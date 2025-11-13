@@ -117,6 +117,12 @@ pub struct CommandLine {
     /// Scale the default window size to fit different displays.
     #[arg(long)]
     pub monitor_scale: Option<f32>,
+
+    /// The zoom factor to use for the image.
+    /// 1.0 means no zoom.
+    /// defaults to 1.1
+    #[arg(long)]
+    pub zoom_factor: Option<f32>,
     // ---
 }
 
