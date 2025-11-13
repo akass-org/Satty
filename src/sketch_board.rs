@@ -722,15 +722,6 @@ impl Component for SketchBoard {
                         }
                 },
 
-                add_controller = gtk::EventControllerScroll{
-                    set_flags: gtk::EventControllerScrollFlags::VERTICAL,
-                    connect_scroll[sender] => move |_, _, dy| {
-
-                        sender.input(SketchBoardInput::new_scroll_event(dy));
-                        glib::Propagation::Stop
-                    },
-                },
-
                 add_controller = gtk::GestureClick {
                     set_button: 0,
                     connect_pressed[sender] => move |controller, _, x, y| {
@@ -740,6 +731,14 @@ impl Component for SketchBoard {
                             controller.current_event_state(),
                             Vec2D::new(x as f32, y as f32)));
                     }
+                },
+
+                add_controller = gtk::EventControllerScroll{
+                    set_flags: gtk::EventControllerScrollFlags::VERTICAL,
+                    connect_scroll[sender] => move |_, _, dy| {
+                        sender.input(SketchBoardInput::new_scroll_event(dy));
+                        glib::Propagation::Stop
+                    },
                 },
 
                 add_controller = gtk::EventControllerKey {
