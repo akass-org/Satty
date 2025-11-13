@@ -724,7 +724,7 @@ impl Component for SketchBoard {
 
                 add_controller = gtk::EventControllerScroll{
                     set_flags: gtk::EventControllerScrollFlags::VERTICAL,
-                    connect_scroll[sender] => move |controller, _, dy| {
+                    connect_scroll[sender] => move |_, _, dy| {
 
                         sender.input(SketchBoardInput::new_scroll_event(dy));
                         glib::Propagation::Stop
@@ -787,6 +787,7 @@ impl Component for SketchBoard {
         let result = match msg {
             SketchBoardInput::InputEvent(mut ie) => {
                 if let InputEvent::Key(ke) = ie {
+                    eprintln!("Key={:?}", ke);
                     if ke.is_one_of(Key::z, KeyMappingId::UsZ)
                         && ke.modifier == ModifierType::CONTROL_MASK
                     {

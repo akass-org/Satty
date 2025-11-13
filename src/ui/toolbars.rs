@@ -119,7 +119,7 @@ impl SimpleComponent for ToolsToolbar {
                 set_focusable: false,
                 set_hexpand: false,
 
-                set_icon_name: "recycling-bin",
+                set_icon_name: "resize-large-regular",
                 set_tooltip: "1:1",
                 connect_clicked[sender] => move |_| {sender.output_sender().emit(ToolbarEvent::OriginalScale);},
             },
@@ -127,7 +127,7 @@ impl SimpleComponent for ToolsToolbar {
                 set_focusable: false,
                 set_hexpand: false,
 
-                set_icon_name: "recycling-bin",
+                set_icon_name: "page-fit-regular",
                 set_tooltip: "Resize",
                 connect_clicked[sender] => move |_| {sender.output_sender().emit(ToolbarEvent::Resize);},
             },
