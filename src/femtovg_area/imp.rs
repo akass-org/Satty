@@ -50,6 +50,7 @@ pub struct FemtoVgAreaMut {
     last_offset: Vec2D,
     drag_offset: Vec2D,
     is_drag: bool,
+    is_reset: bool,
 }
 
 #[glib::object_subclass]
@@ -105,7 +106,7 @@ impl GLAreaImpl for FemtoVGArea {
         self.ensure_canvas();
 
         let mut bc = self.canvas.borrow_mut();
-        let canvas: &mut Canvas<renderer::OpenGl> = bc.as_mut().unwrap(); // this unwrap is safe as long as we call "ensure_canvas" before
+        let canvas = bc.as_mut().unwrap(); // this unwrap is safe as long as we call "ensure_canvas" before
         let font = self.font.borrow().unwrap(); // this unwrap is safe as long as we call "ensure_canvas" before
         let mut actions = self.request_render.borrow_mut();
 
@@ -169,6 +170,7 @@ impl FemtoVGArea {
             drag_offset: Vec2D::zero(),
             last_scale: 0.0,
             is_drag: false,
+            is_reset: false,
         });
         self.sender.borrow_mut().replace(sender);
     }
@@ -539,34 +541,31 @@ impl FemtoVgAreaMut {
         let canvas_height = canvas.height() as f32;
 
         let prev_scale = self.scale_factor;
+        let mut center_offset = Vec2D::zero();
 
-        // 更新 scale_factor
+        // update scale_factor
         if self.zoom_scale != 0.0 {
             if self.zoom_scale != self.last_scale {
                 self.last_scale = self.zoom_scale;
                 self.scale_factor = self.zoom_scale;
 
-                if self.drag_offset.is_zero() {
-                    // 居中
-                    self.offset = Vec2D::new(
-                        (canvas_width - image_width * self.scale_factor) / 2.0,
-                        (canvas_height - image_height * self.scale_factor) / 2.0,
-                    );
-                } else {
-                    // 以 pointer 为中心计算 offset
+                if !self.is_reset {
+                    // calculate offset from pointer
                     let pointer_offset = self.pointer_offset;
                     let zoom_offset = Vec2D::new(
                         (pointer_offset.x - self.offset.x) / prev_scale,
                         (pointer_offset.y - self.offset.y) / prev_scale,
                     );
-                    self.offset = pointer_offset - zoom_offset * self.scale_factor;
 
-                    // 更新 drag_offset
-                    let center_offset = Vec2D::new(
+                    let calculated_offset = pointer_offset - zoom_offset * self.scale_factor;
+
+                    // update drag_offset
+                    center_offset = Vec2D::new(
                         (canvas_width - image_width * self.scale_factor) / 2.0,
                         (canvas_height - image_height * self.scale_factor) / 2.0,
                     );
-                    self.drag_offset = self.offset - center_offset;
+
+                    self.drag_offset = calculated_offset - center_offset;
                     self.store_last_offset();
                 }
             } else {
@@ -580,17 +579,20 @@ impl FemtoVgAreaMut {
             };
         }
 
-        // 最终 offset = 中心 + drag_offset（如果 drag_offset 为 0，则居中）
-        if self.drag_offset.is_zero() {
-            self.offset = Vec2D::new(
+        // final offset
+        if center_offset.is_zero() {
+            center_offset = Vec2D::new(
                 (canvas_width - image_width * self.scale_factor) / 2.0,
                 (canvas_height - image_height * self.scale_factor) / 2.0,
             );
+        }
+
+        if self.is_reset {
+            //centered
+            self.is_reset = false;
+            self.offset = center_offset;
         } else {
-            let center_offset = Vec2D::new(
-                (canvas_width - image_width * self.scale_factor) / 2.0,
-                (canvas_height - image_height * self.scale_factor) / 2.0,
-            );
+            //dragged
             self.offset = center_offset + self.drag_offset;
         }
     }
@@ -636,6 +638,7 @@ impl FemtoVgAreaMut {
     pub fn reset_drag_offset(&mut self) {
         self.drag_offset = Vec2D::zero();
         self.store_last_offset();
+        self.is_reset = true;
     }
 
     pub fn store_last_offset(&mut self) {
