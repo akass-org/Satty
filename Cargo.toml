@@ -1,6 +1,6 @@
 [package]
 name = "satty"
-version = "0.20.0-040b5e2"
+version = "0.20.0-dc6537a"
 edition = "2021"
 authors = ["Matthias Gabriel <gabm+aur@mailbox.org>"]
 description = "Modern Screenshot Annotation."
