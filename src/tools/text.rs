@@ -876,10 +876,8 @@ impl TextTool {
                     let insert_iter = text_buffer.iter_at_mark(&insert);
 
                     if insert_iter == start {
-                        // 活动端在左侧，移动到左侧
                         cursor_itr = end;
                     } else {
-                        // 活动端在右侧，移动到右侧
                         cursor_itr = start;
                     }
                 } else {
@@ -930,11 +928,9 @@ impl TextTool {
                     let insert_iter = text_buffer.iter_at_mark(&insert);
 
                     if insert_iter == start {
-                        // 活动端在左侧，说明正在向左扩展
                         start_cursor_itr_new = start;
                         end_cursor_itr = end;
                     } else {
-                        // 活动端在右侧，说明正在向右扩展
                         start_cursor_itr_new = end;
                         end_cursor_itr = start;
                     }
