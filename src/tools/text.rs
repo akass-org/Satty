@@ -1,5 +1,5 @@
 use anyhow::Result;
-use femtovg::{FontId, Paint, Path};
+use femtovg::{Color, FontId, Paint, Path};
 use relm4::gtk::prelude::IMContextExt;
 use relm4::gtk::{
     gdk::{Key, ModifierType, Rectangle},
@@ -209,6 +209,36 @@ impl Drawable for Text {
                     preedit_range,
                     cursor_metrics,
                 );
+            }
+        }
+
+        //draw selection
+        if let Some((sel_start_iter, sel_end_iter)) = self.text_buffer.selection_bounds() {
+            let sel_start = sel_start_iter.offset() as usize;
+            let sel_end = sel_end_iter.offset() as usize;
+
+            for line in &line_layouts {
+                let overlap_start = sel_start.max(line.range.start);
+                let overlap_end = sel_end.min(line.range.end);
+                if overlap_start >= overlap_end {
+                    continue; // 这一行没有选区
+                }
+
+                // 计算选区在行内的 x 坐标
+                let segments = self.segments_for_line_span(
+                    canvas,
+                    &layout_context,
+                    line,
+                    overlap_start..overlap_end,
+                );
+                for (start_x, end_x) in segments {
+                    let mut path = Path::new();
+                    let top = line.baseline + cursor_metrics.top_offset;
+                    path.rect(start_x, top, end_x - start_x, cursor_metrics.height);
+                    let mut paint = Paint::color(Color::rgbaf(0.3, 0.5, 1.0, 0.3)); // 半透明蓝色
+                    paint.set_anti_alias(true);
+                    canvas.fill_path(&path, &paint);
+                }
             }
         }
 
@@ -715,6 +745,46 @@ impl Tool for TextTool {
                         ActionScope::ForwardChar,
                     );
                 }
+            } else if event.key == Key::Up {
+                if event.modifier == ModifierType::CONTROL_MASK {
+                    return Self::handle_text_buffer_action(
+                        &mut t.text_buffer,
+                        Action::MoveCursor,
+                        ActionScope::BackwardLineAndWord,
+                    );
+                } else if event.modifier == ModifierType::SHIFT_MASK {
+                    return Self::handle_text_buffer_action(
+                        &mut t.text_buffer,
+                        Action::Select,
+                        ActionScope::BackwardLineAndWord,
+                    );
+                } else {
+                    return Self::handle_text_buffer_action(
+                        &mut t.text_buffer,
+                        Action::MoveCursor,
+                        ActionScope::BackwardLineAndWord,
+                    );
+                }
+            } else if event.key == Key::Down {
+                if event.modifier == ModifierType::CONTROL_MASK {
+                    return Self::handle_text_buffer_action(
+                        &mut t.text_buffer,
+                        Action::MoveCursor,
+                        ActionScope::ForwardLineAndWord,
+                    );
+                } else if event.modifier == ModifierType::SHIFT_MASK {
+                    return Self::handle_text_buffer_action(
+                        &mut t.text_buffer,
+                        Action::Select,
+                        ActionScope::ForwardLineAndWord,
+                    );
+                } else {
+                    return Self::handle_text_buffer_action(
+                        &mut t.text_buffer,
+                        Action::MoveCursor,
+                        ActionScope::ForwardLineAndWord,
+                    );
+                }
             } else if event.key == Key::Home {
                 if event.modifier == ModifierType::CONTROL_MASK {
                     return Self::handle_text_buffer_action(
@@ -821,6 +891,8 @@ enum ActionScope {
     BackwardLine,
     ForwardWord,
     BackwardWord,
+    ForwardLineAndWord,
+    BackwardLineAndWord,
     BufferStart,
     BufferEnd,
 }
@@ -907,6 +979,38 @@ impl TextTool {
                             }
                             false
                         }
+                        ActionScope::ForwardLineAndWord => {
+                            let current_line_offset = cursor_itr.line_offset();
+                            cursor_itr.forward_line();
+
+                            while cursor_itr.line_offset() < current_line_offset {
+                                if !cursor_itr.forward_char() {
+                                    break;
+                                }
+                            }
+                            while cursor_itr.line_offset() < current_line_offset {
+                                if !cursor_itr.backward_char() {
+                                    break;
+                                }
+                            }
+                            false
+                        }
+                        ActionScope::BackwardLineAndWord => {
+                            let current_line_offset = cursor_itr.line_offset();
+                            cursor_itr.backward_line();
+
+                            while cursor_itr.line_offset() < current_line_offset {
+                                if !cursor_itr.forward_char() {
+                                    break;
+                                }
+                            }
+                            while cursor_itr.line_offset() < current_line_offset {
+                                if !cursor_itr.backward_char() {
+                                    break;
+                                }
+                            }
+                            false
+                        }
                     };
                 }
 
@@ -951,8 +1055,42 @@ impl TextTool {
                         end_cursor_itr.backward_char();
                         text_buffer.select_range(&start_cursor_itr_new, &end_cursor_itr);
                     }
-                    ActionScope::ForwardLine => todo!(),
-                    ActionScope::BackwardLine => todo!(),
+                    ActionScope::ForwardLine => {}
+                    ActionScope::BackwardLine => {}
+                    ActionScope::ForwardLineAndWord => {
+                        let current_line_offset = end_cursor_itr.line_offset();
+                        end_cursor_itr.forward_line();
+
+                        while end_cursor_itr.line_offset() < current_line_offset {
+                            if !end_cursor_itr.forward_char() {
+                                break;
+                            }
+                        }
+                        while end_cursor_itr.line_offset() < current_line_offset {
+                            if !end_cursor_itr.backward_char() {
+                                break;
+                            }
+                        }
+
+                        text_buffer.select_range(&start_cursor_itr_new, &end_cursor_itr);
+                    }
+                    ActionScope::BackwardLineAndWord => {
+                        let current_line_offset = end_cursor_itr.line_offset();
+                        end_cursor_itr.backward_line();
+
+                        while end_cursor_itr.line_offset() < current_line_offset {
+                            if !end_cursor_itr.forward_char() {
+                                break;
+                            }
+                        }
+                        while end_cursor_itr.line_offset() < current_line_offset {
+                            if !end_cursor_itr.backward_char() {
+                                break;
+                            }
+                        }
+
+                        text_buffer.select_range(&start_cursor_itr_new, &end_cursor_itr);
+                    }
                     ActionScope::ForwardWord => todo!(),
                     ActionScope::BackwardWord => todo!(),
                     _ => {}
