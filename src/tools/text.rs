@@ -28,6 +28,7 @@ pub struct Text {
     preedit: Option<Preedit>,
     im_context: Option<InputContext>,
     rect: RefCell<Rectangle>,
+    glyphs: RefCell<Vec<Vec<Rectangle>>>,
 }
 
 struct DisplayContent<'a> {
@@ -67,6 +68,7 @@ impl Text {
             preedit: None,
             im_context,
             rect: RefCell::new(Rectangle::new(0, 0, 0, 0)),
+            glyphs: RefCell::new(Vec::new()),
         }
     }
 
@@ -236,7 +238,8 @@ impl Drawable for Text {
                 );
                 for (start_x, end_x) in segments {
                     let mut path = Path::new();
-                    let top = line.baseline + cursor_metrics.top_offset;
+                    let offset_y = cursor_metrics.height * 0.1;
+                    let top = line.baseline + cursor_metrics.top_offset + offset_y;
                     path.rect(start_x, top, end_x - start_x, cursor_metrics.height);
                     let mut paint = Paint::color(Color::rgbaf(0.3, 0.5, 1.0, 0.3)); // 半透明蓝色
                     paint.set_anti_alias(true);
@@ -247,6 +250,71 @@ impl Drawable for Text {
 
         let mut draw_baseline = self.pos.y;
         let mut rect = self.rect.borrow_mut();
+        let mut glyphs = self.glyphs.borrow_mut();
+
+        glyphs.clear();
+
+        {
+            // let sel_start = self.text_buffer.start_iter().offset() as usize;
+            // let sel_end = self.text_buffer.end_iter().offset() as usize;
+            let mut top = 0;
+            let mut left = 0;
+            let mut width = 0;
+            let mut height = 0;
+
+            for line in &line_layouts {
+                let mut line_glyphs = Vec::new();
+                eprintln!("line: {:?}", line.range);
+
+                let start = line.range.start;
+                let end = line.range.end;
+
+                for i in start..end {
+                    // 计算选区在行内的 x 坐标
+                    let segments =
+                        self.segments_for_line_span(canvas, &layout_context, line, i..i + 1);
+
+                    for (start_x, end_x) in segments {
+                        // let mut path = Path::new();
+                        // let top = line.baseline + cursor_metrics.top_offset;
+                        // path.rect(start_x, top, end_x - start_x, cursor_metrics.height);
+                        // let mut paint = Paint::color(Color::rgbaf(0.3, 0.5, 1.0, 0.3)); // 半透明蓝色
+                        // paint.set_anti_alias(true);
+                        // canvas.fill_path(&path, &paint);
+                        let offset_y = cursor_metrics.height * 0.1;
+                        let y = (line.baseline + cursor_metrics.top_offset + offset_y) as i32;
+                        let h = cursor_metrics.height as i32;
+                        let x = start_x as i32;
+                        let w = (end_x - start_x) as i32;
+                        line_glyphs.push(Rectangle::new(x, y, w, h));
+
+                        // eprintln!(
+                        //     "calculate {:?} - {:?}",
+                        //     cursor_metrics.height, cursor_height
+                        // );
+
+                        if top == 0 {
+                            top = y;
+                        }
+
+                        if left == 0 {
+                            left = x;
+                        }
+
+                        // eprintln!("end {end_x}");
+                        width = (end_x as i32 - left).max(width);
+                        height = y + h - top;
+                    }
+                }
+
+                glyphs.push(line_glyphs);
+
+                rect.set_height(height);
+                rect.set_width(width);
+                rect.set_x(left);
+                rect.set_y(top);
+            }
+        }
 
         for line_range in &lines {
             canvas.fill_text(
@@ -256,25 +324,9 @@ impl Drawable for Text {
                 &base_paint,
             )?;
             draw_baseline += line_height;
-
-            // 计算行宽度（FemtoVG / Canvas API 提供测量函数）
-            let text_metrics = canvas.measure_text(
-                self.pos.x,
-                self.pos.y,
-                &text[line_range.clone()],
-                &base_paint,
-            )?;
-
-            let width = rect.width();
-            let height = rect.height();
-
-            //calculate text rect
-            rect.set_x(self.pos.x as i32);
-            rect.set_width(width.max(text_metrics.width() as i32));
-            rect.set_height(height + text_metrics.height() as i32);
         }
 
-        eprintln!("rect: {:?} ", self.rect);
+        // eprintln!("rect: {:?}, glyphs: {:?}", rect, glyphs);
 
         if self.editing {
             if let (Some(preedit), Some(preedit_range)) = (&self.preedit, &display.preedit_range) {
@@ -851,26 +903,46 @@ impl Tool for TextTool {
         match event.type_ {
             MouseEventType::Click => {
                 if event.button == MouseButton::Primary {
-                    eprintln!("TextTool: Primary click  {:?}", event);
                     let pos = event.pos;
                     if let Some(t) = &mut self.text {
                         let rect = t.rect.borrow();
-                        if pos.x < t.pos.x
-                            || pos.x > t.pos.x + rect.width() as f32
-                            || pos.y < t.pos.y - rect.height() as f32
-                            || pos.y > t.pos.y
-                        {
-                            // eprintln!(
-                            //     "check {} {} {:?} {} {}",
-                            //     pos.x,
-                            //     pos.y,
-                            //     rect,
-                            //     rect.x() + rect.width(),
-                            //     rect.y() - rect.height()
-                            // );
-                            // return ToolUpdateResult::Unmodified;
-                        } else {
-                            return ToolUpdateResult::Unmodified;
+                        // eprintln!("===== rect {:?} : {:?}", rect, event.pos);
+                        if rect.contains_point(pos.x as i32, pos.y as i32) {
+                            //todo
+                            //calculate text cursor position
+
+                            let mut line_index = 0;
+                            let mut index = 0;
+                            let mut find_index = false;
+
+                            let glyphs = t.glyphs.borrow();
+                            for line in glyphs.iter() {
+                                index = 0;
+                                for glyph in line.iter() {
+                                    // eprintln!("===== rect {:?} : {:?}", glyph, event.pos);
+                                    if glyph.contains_point(pos.x as i32, pos.y as i32) {
+                                        find_index = true;
+                                        if pos.x > glyph.x() as f32 + glyph.width() as f32 / 2.0 {
+                                            index += 1;
+                                        }
+                                        break;
+                                    }
+                                    index += 1;
+                                }
+                                if find_index {
+                                    break;
+                                }
+                                line_index += 1;
+                            }
+
+                            eprintln!("TextTool: click at index {} - {}", line_index, index);
+                            let buffer = &t.text_buffer;
+                            let mut cursur_iter = buffer.iter_at_mark(&buffer.get_insert());
+                            cursur_iter.set_line(line_index);
+                            cursur_iter.set_line_index(index);
+                            t.text_buffer.place_cursor(&cursur_iter);
+
+                            return ToolUpdateResult::Redraw;
                         }
                     }
 
