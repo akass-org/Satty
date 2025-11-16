@@ -17,6 +17,7 @@ use crate::{
 };
 
 use super::{Drawable, DrawableClone, InputContext, Tool, ToolUpdateResult, Tools};
+use std::cell::RefCell;
 
 #[derive(Clone, Debug)]
 pub struct Text {
@@ -26,6 +27,7 @@ pub struct Text {
     style: Style,
     preedit: Option<Preedit>,
     im_context: Option<InputContext>,
+    rect: RefCell<Rectangle>,
 }
 
 struct DisplayContent<'a> {
@@ -64,6 +66,7 @@ impl Text {
             style,
             preedit: None,
             im_context,
+            rect: RefCell::new(Rectangle::new(0, 0, 0, 0)),
         }
     }
 
@@ -243,6 +246,8 @@ impl Drawable for Text {
         }
 
         let mut draw_baseline = self.pos.y;
+        let mut rect = self.rect.borrow_mut();
+
         for line_range in &lines {
             canvas.fill_text(
                 self.pos.x,
@@ -251,7 +256,25 @@ impl Drawable for Text {
                 &base_paint,
             )?;
             draw_baseline += line_height;
+
+            // 计算行宽度（FemtoVG / Canvas API 提供测量函数）
+            let text_metrics = canvas.measure_text(
+                self.pos.x,
+                self.pos.y,
+                &text[line_range.clone()],
+                &base_paint,
+            )?;
+
+            let width = rect.width();
+            let height = rect.height();
+
+            //calculate text rect
+            rect.set_x(self.pos.x as i32);
+            rect.set_width(width.max(text_metrics.width() as i32));
+            rect.set_height(height + text_metrics.height() as i32);
         }
+
+        eprintln!("rect: {:?} ", self.rect);
 
         if self.editing {
             if let (Some(preedit), Some(preedit_range)) = (&self.preedit, &display.preedit_range) {
@@ -580,6 +603,7 @@ pub struct TextTool {
     style: Style,
     input_enabled: bool,
     im_context: Option<InputContext>,
+    is_double_click: bool,
 }
 
 impl Tool for TextTool {
@@ -664,12 +688,17 @@ impl Tool for TextTool {
         if let Some(t) = &mut self.text {
             if event.key == Key::Return {
                 if event.modifier == ModifierType::SHIFT_MASK {
+                    //clear selection
+                    t.text_buffer
+                        .select_range(&t.text_buffer.end_iter(), &t.text_buffer.end_iter());
                     t.text_buffer.insert_at_cursor("\n");
                     return ToolUpdateResult::Redraw;
                 } else {
                     t.preedit = None;
                     t.editing = false;
                     t.im_context = None;
+                    t.text_buffer
+                        .select_range(&t.text_buffer.start_iter(), &t.text_buffer.start_iter());
                     let result = t.clone_box();
                     self.text = None;
                     self.input_enabled = false;
@@ -822,12 +851,39 @@ impl Tool for TextTool {
         match event.type_ {
             MouseEventType::Click => {
                 if event.button == MouseButton::Primary {
+                    eprintln!("TextTool: Primary click  {:?}", event);
+                    let pos = event.pos;
+                    if let Some(t) = &mut self.text {
+                        let rect = t.rect.borrow();
+                        if pos.x < t.pos.x
+                            || pos.x > t.pos.x + rect.width() as f32
+                            || pos.y < t.pos.y - rect.height() as f32
+                            || pos.y > t.pos.y
+                        {
+                            // eprintln!(
+                            //     "check {} {} {:?} {} {}",
+                            //     pos.x,
+                            //     pos.y,
+                            //     rect,
+                            //     rect.x() + rect.width(),
+                            //     rect.y() - rect.height()
+                            // );
+                            // return ToolUpdateResult::Unmodified;
+                        } else {
+                            return ToolUpdateResult::Unmodified;
+                        }
+                    }
+
                     // create commit message if necessary
                     let return_value = match &mut self.text {
                         Some(l) => {
                             l.preedit = None;
                             l.editing = false;
                             l.im_context = None;
+                            l.text_buffer.select_range(
+                                &l.text_buffer.start_iter(),
+                                &l.text_buffer.start_iter(),
+                            );
                             ToolUpdateResult::Commit(l.clone_box())
                         }
                         None => ToolUpdateResult::Redraw,
