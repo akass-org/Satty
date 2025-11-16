@@ -738,6 +738,7 @@ impl Tool for TextTool {
 
     fn handle_key_event(&mut self, event: KeyEventMsg) -> ToolUpdateResult {
         if let Some(t) = &mut self.text {
+            eprintln!("key event : {:?}", event);
             if event.key == Key::Return {
                 if event.modifier == ModifierType::SHIFT_MASK {
                     //clear selection
@@ -786,6 +787,14 @@ impl Tool for TextTool {
                         ActionScope::ForwardChar,
                     );
                 }
+            } else if (event.key == Key::a || event.key == Key::A)
+                && event.modifier == ModifierType::CONTROL_MASK
+            {
+                return Self::handle_text_buffer_action(
+                    &mut t.text_buffer,
+                    Action::Select,
+                    ActionScope::SelectAll,
+                );
             } else if event.key == Key::Left {
                 if event.modifier == ModifierType::CONTROL_MASK {
                     return Self::handle_text_buffer_action(
@@ -942,6 +951,20 @@ impl Tool for TextTool {
                             cursur_iter.set_line_index(index);
                             t.text_buffer.place_cursor(&cursur_iter);
 
+                            if event.n_pressed == 2 {
+                                let mut start_itr = cursur_iter;
+                                let mut end_itr = start_itr;
+                                start_itr.backward_word_start();
+                                end_itr.forward_word_end();
+                                t.text_buffer.select_range(&start_itr, &end_itr);
+                            } else if event.n_pressed == 3 {
+                                let mut start_itr = cursur_iter;
+                                let mut end_itr = start_itr;
+                                start_itr.backward_sentence_start();
+                                end_itr.forward_sentence_end();
+                                t.text_buffer.select_range(&start_itr, &end_itr);
+                            }
+
                             return ToolUpdateResult::Redraw;
                         }
                     }
@@ -1021,6 +1044,7 @@ enum ActionScope {
     BackwardWord,
     ForwardLineAndWord,
     BackwardLineAndWord,
+    SelectAll,
     BufferStart,
     BufferEnd,
 }
@@ -1139,6 +1163,7 @@ impl TextTool {
                             }
                             false
                         }
+                        _ => false, // should normally be whether movement was possible, but it's not used anyway
                     };
                 }
 
@@ -1221,17 +1246,23 @@ impl TextTool {
                     }
                     ActionScope::ForwardWord => todo!(),
                     ActionScope::BackwardWord => todo!(),
+                    ActionScope::SelectAll => {
+                        start_cursor_itr_new = text_buffer.start_iter();
+                        end_cursor_itr = text_buffer.end_iter();
+                        text_buffer
+                            .select_range(&start_cursor_itr_new, &end_cursor_itr);
+                    }
                     _ => {}
                 }
 
                 eprintln!(
                     "{:?} {:?} {:?}",
                     text_buffer.selection_content(),
-                    start_cursor_itr.offset(),
+                    start_cursor_itr_new.offset(),
                     end_cursor_itr.offset()
                 );
 
-                if end_cursor_itr != start_cursor_itr {
+                if end_cursor_itr != start_cursor_itr_new {
                     ToolUpdateResult::Redraw
                 } else {
                     ToolUpdateResult::Unmodified
