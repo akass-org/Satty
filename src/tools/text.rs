@@ -226,13 +226,17 @@ impl Drawable for Text {
             let sel_end = sel_end_iter.offset() as usize;
 
             for line in &line_layouts {
-                let overlap_start = sel_start.max(line.range.start);
-                let overlap_end = sel_end.min(line.range.end);
+                // let line_text = &layout_context.text[line.range.clone()]; // UTF-8 slice
+                let start_index = text[..line.range.start].chars().count();
+                let end_index = text[..line.range.end].chars().count();
+
+                // eprintln!("line range {:?} {:?}", start_index, end_index);
+
+                let overlap_start = sel_start.max(start_index);
+                let overlap_end = sel_end.min(end_index);
                 if overlap_start >= overlap_end {
                     continue; // 这一行没有选区
                 }
-
-                eprintln!("draw selection iter {} {}", overlap_start, overlap_end);
 
                 // 计算选区在行内的 x 坐标
                 let segments = self.segments_for_line_span(
@@ -241,18 +245,27 @@ impl Drawable for Text {
                     line,
                     overlap_start..overlap_end,
                 );
+                // eprintln!(
+                //     "overlap {:?} {:?} {:?}",
+                //     overlap_start, overlap_end, segments
+                // );
                 for (start_x, end_x) in segments {
                     let mut path = Path::new();
+
                     let offset_y = cursor_metrics.height * 0.1;
-                    let top = line.baseline + cursor_metrics.top_offset + offset_y;
-                    path.rect(start_x, top, end_x - start_x, cursor_metrics.height);
+                    let y = line.baseline + cursor_metrics.top_offset + offset_y;
+                    let h = cursor_metrics.height;
+                    let x = start_x;
+                    let w = end_x - start_x;
+
+                    path.rect(x, y, w, h);
                     let mut paint = Paint::color(Color::rgbaf(0.3, 0.5, 1.0, 0.3)); // 半透明蓝色
                     paint.set_anti_alias(true);
                     canvas.fill_path(&path, &paint);
 
                     let w = end_x - start_x;
                     let h = cursor_metrics.height;
-                    eprintln!("draw selection {} {} {} {}", start_x, top, w, h);
+                    eprintln!("draw selection {} {} {} {}", x, y, w, h);
                 }
             }
         }
@@ -275,10 +288,11 @@ impl Drawable for Text {
                 let mut line_glyphs = Vec::new();
                 // eprintln!("line: {:?}", line.range);
 
-                let start = line.range.start;
-                let end = line.range.end;
+                let start = text[..line.range.start].chars().count();
+                let end = text[..line.range.end].chars().count();
 
                 for i in start..end {
+                    eprintln!("draw char {} {}", i, i + 1);
                     // 计算选区在行内的 x 坐标
                     let segments =
                         self.segments_for_line_span(canvas, &layout_context, line, i..i + 1);
@@ -532,38 +546,86 @@ impl Text {
             return Vec::new();
         }
 
+        // let text = context.text.replace("\n", "")
+        let chars_without_newline: Vec<(usize, char)> = context
+            .text
+            .char_indices()
+            // .filter(|(_, c)| *c != '\n')
+            .collect();
+
+        let range_start_byte = chars_without_newline
+            .get(range.start)
+            .map(|(i, _)| *i)
+            .unwrap_or(context.text.len());
+
+        let range_end_byte = chars_without_newline
+            .get(range.end)
+            .map(|(i, _)| *i)
+            .unwrap_or(context.text.len());
+
         let line_start = line.range.start;
         let line_end = line.range.end;
-        let overlap_start = range.start.max(line_start).min(line_end);
-        let overlap_end = range.end.max(line_start).min(line_end);
+        let overlap_start = range_start_byte.max(line_start).min(line_end);
+        let overlap_end = range_end_byte.max(line_start).min(line_end);
+
+        // eprintln!(
+        //     "overlap check {:?} {:?} at {:?} {:?}",
+        //     overlap_start, overlap_end, range_start_byte, range_end_byte
+        // );
         if overlap_start >= overlap_end {
             return Vec::new();
         }
 
         let line_text = &context.text[line.range.clone()];
 
-        // 将字符索引转成字节索引
-        let start_byte = line_text
-            .char_indices()
-            .nth(overlap_start.saturating_sub(line_start))
-            .map(|(i, _)| i)
-            .unwrap_or(line_text.len());
+        let start_byte = overlap_start.saturating_sub(line_start);
+        let end_byte = overlap_end.saturating_sub(line_start);
 
-        let end_byte = line_text
-            .char_indices()
-            .nth(overlap_end.saturating_sub(line_start))
-            .map(|(i, _)| i)
-            .unwrap_or(line_text.len());
+        // eprintln!("start .. end = {} .. {}", start_byte, end_byte);
 
         let prefix = &line_text[..start_byte];
-        let selected = &line_text[start_byte..end_byte];
+        let selected = &line_text[start_byte..end_byte].replace("\n", "");
+
+        // eprintln!("selected str {}", selected);
 
         // 计算 x 坐标和宽度
-        let start_x = self.pos.x + Self::text_width(canvas, context.paint, prefix);
+        let start_x: f32 = self.pos.x + Self::text_width(canvas, context.paint, prefix);
         let width = Self::text_width(canvas, context.paint, selected);
 
         vec![(start_x, start_x + width.max(0.0))]
     }
+
+    // fn segments_for_line_span(
+    //     &self,
+    //     canvas: &mut femtovg::Canvas<femtovg::renderer::OpenGl>,
+    //     context: &TextDrawingContext<'_>,
+    //     line: &LineLayout,
+    //     range: Range<usize>,
+    // ) -> Vec<(f32, f32)> {
+    //     if range.start >= range.end {
+    //         return Vec::new();
+    //     }
+
+    //     let line_start = line.range.start;
+    //     let line_end = line.range.end;
+    //     let overlap_start = range.start.max(line_start).min(line_end);
+    //     let overlap_end = range.end.max(line_start).min(line_end);
+    //     if overlap_start >= overlap_end {
+    //         return Vec::new();
+    //     }
+
+    //     let line_text = &context.text[line.range.clone()];
+    //     let start_offset = overlap_start.saturating_sub(line_start);
+    //     let end_offset = overlap_end.saturating_sub(line_start);
+
+    //     let prefix = &line_text[..start_offset];
+    //     let selected = &line_text[start_offset..end_offset];
+
+    //     let start_x = self.pos.x + Self::text_width(canvas, context.paint, prefix);
+    //     let width = Self::text_width(canvas, context.paint, selected);
+
+    //     vec![(start_x, start_x + width.max(0.0))]
+    // }
 
     fn caret_top_left(
         &self,
