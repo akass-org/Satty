@@ -35,6 +35,7 @@ pub struct Text {
     glyphs: RefCell<Vec<Vec<Rectangle>>>,
     line_ranges: RefCell<Vec<Range<usize>>>,
     cursor_visible: RefCell<bool>,
+    draw_rect: RefCell<bool>,
 }
 
 struct DisplayContent<'a> {
@@ -77,6 +78,7 @@ impl Text {
             glyphs: RefCell::new(Vec::new()),
             line_ranges: RefCell::new(Vec::new()),
             cursor_visible: RefCell::new(true),
+            draw_rect: RefCell::new(true),
         }
     }
 
@@ -276,7 +278,6 @@ impl Drawable for Text {
         let mut glyphs = self.glyphs.borrow_mut();
 
         glyphs.clear();
-
         {
             // let sel_start = self.text_buffer.start_iter().offset() as usize;
             // let sel_end = self.text_buffer.end_iter().offset() as usize;
@@ -335,6 +336,22 @@ impl Drawable for Text {
                 rect.set_x(left);
                 rect.set_y(top);
             }
+        }
+
+        //draw rect
+        if *self.draw_rect.borrow() {
+            let mut rect_paint = Path::new();
+            rect_paint.move_to(self.pos.x, self.pos.y);
+            let y = rect.y() as f32;
+            let h = rect.height() as f32;
+            let x = rect.x() as f32;
+            let w = rect.width() as f32;
+
+            rect_paint.rect(x, y, w, h);
+            let mut paint = Paint::color(Color::rgbaf(1.0, 0.5, 0.3, 0.3)); // 半透明黄色
+            paint.set_anti_alias(true);
+            paint.set_line_width(2.0);
+            canvas.stroke_path(&rect_paint, &paint);
         }
 
         for line_range in &lines {
@@ -814,6 +831,7 @@ impl Tool for TextTool {
                         t.im_context = None;
                         t.text_buffer
                             .select_range(&t.text_buffer.start_iter(), &t.text_buffer.start_iter());
+                        *t.draw_rect.borrow_mut() = false;
                         let result = t.clone_box();
                         self.text = None;
                         self.input_enabled = false;
@@ -1106,6 +1124,7 @@ impl Tool for TextTool {
                                 &l.text_buffer.start_iter(),
                                 &l.text_buffer.start_iter(),
                             );
+                            *l.draw_rect.borrow_mut() = false;
                             ToolUpdateResult::Commit(l.clone_box())
                         }
                         None => ToolUpdateResult::Redraw,
