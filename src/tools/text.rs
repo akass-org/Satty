@@ -1040,18 +1040,18 @@ impl Tool for TextTool {
                             }
 
                             let buffer = &t.text_buffer;
-                            let mut cursur_iter = buffer.iter_at_mark(&buffer.get_insert());
-                            cursur_iter.set_offset(index);
-                            t.text_buffer.place_cursor(&cursur_iter);
+                            let mut cursor_iter = buffer.iter_at_mark(&buffer.get_insert());
+                            cursor_iter.set_offset(index);
+                            t.text_buffer.place_cursor(&cursor_iter);
 
                             if event.n_pressed == 2 {
-                                let mut start_itr = cursur_iter;
+                                let mut start_itr = cursor_iter;
                                 let mut end_itr = start_itr;
                                 start_itr.backward_word_start();
                                 end_itr.forward_word_end();
                                 t.text_buffer.select_range(&start_itr, &end_itr);
                             } else if event.n_pressed == 3 {
-                                let mut start_itr = cursur_iter;
+                                let mut start_itr = cursor_iter;
                                 let mut end_itr = start_itr;
                                 while !start_itr.is_start() {
                                     start_itr.backward_line();
@@ -1131,11 +1131,11 @@ impl Tool for TextTool {
                             }
 
                             let buffer = &t.text_buffer;
-                            let mut cursur_iter = buffer.iter_at_mark(&buffer.get_insert());
-                            cursur_iter.set_offset(index);
+                            let mut cursor_iter = buffer.iter_at_mark(&buffer.get_insert());
+                            cursor_iter.set_offset(index);
 
                             let start_cursor_itr = buffer.iter_at_mark(&buffer.get_insert());
-                            buffer.select_range(&start_cursor_itr, &cursur_iter);
+                            buffer.select_range(&start_cursor_itr, &cursor_iter);
 
                             return ToolUpdateResult::Redraw;
                         }
@@ -1611,11 +1611,7 @@ impl TextTool {
                 //     end_cursor_itr.offset()
                 // );
 
-                if end_cursor_itr != start_cursor_itr_new {
-                    ToolUpdateResult::Redraw
-                } else {
-                    ToolUpdateResult::Unmodified
-                }
+                ToolUpdateResult::Redraw
             }
         }
     }
