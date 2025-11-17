@@ -821,7 +821,7 @@ impl Tool for TextTool {
 
     fn handle_key_event(&mut self, event: KeyEventMsg) -> ToolUpdateResult {
         if let Some(t) = &mut self.text {
-            // eprintln!("key event : {:?}", event);
+            eprintln!("key event : {:?}", event);
             match event.key {
                 Key::Return => match event.modifier {
                     ModifierType::SHIFT_MASK => {
@@ -926,18 +926,28 @@ impl Tool for TextTool {
                         _ => ActionScope::None,
                     };
 
-                    if event.modifier == ModifierType::CONTROL_MASK {
-                        return Self::handle_text_buffer_action(
-                            &mut t.text_buffer,
-                            Action::MoveCursor,
-                            ctrl_mask,
-                        );
-                    } else {
-                        return Self::handle_text_buffer_action(
-                            &mut t.text_buffer,
-                            Action::MoveCursor,
-                            other_mask,
-                        );
+                    match event.modifier {
+                        ModifierType::CONTROL_MASK => {
+                            return Self::handle_text_buffer_action(
+                                &mut t.text_buffer,
+                                Action::MoveCursor,
+                                ctrl_mask,
+                            );
+                        }
+                        ModifierType::SHIFT_MASK => {
+                            return Self::handle_text_buffer_action(
+                                &mut t.text_buffer,
+                                Action::Select,
+                                other_mask,
+                            );
+                        }
+                        _ => {
+                            return Self::handle_text_buffer_action(
+                                &mut t.text_buffer,
+                                Action::MoveCursor,
+                                other_mask,
+                            );
+                        }
                     }
                 }
                 Key::a | Key::A => {
@@ -1297,14 +1307,22 @@ impl TextTool {
                 match action_scope {
                     ActionScope::ForwardChar => {
                         end_cursor_itr.forward_char();
-                        text_buffer.select_range(&start_cursor_itr_new, &end_cursor_itr);
                     }
                     ActionScope::BackwardChar => {
                         end_cursor_itr.backward_char();
-                        text_buffer.select_range(&start_cursor_itr_new, &end_cursor_itr);
                     }
-                    ActionScope::ForwardLine => {}
-                    ActionScope::BackwardLine => {}
+                    ActionScope::ForwardLine => {
+                        end_cursor_itr.forward_to_line_end();
+                    }
+                    ActionScope::BackwardLine => {
+                        if end_cursor_itr.starts_line() {
+                            end_cursor_itr.backward_line();
+                        } else {
+                            while !end_cursor_itr.starts_line() {
+                                end_cursor_itr.backward_char();
+                            }
+                        }
+                    }
                     ActionScope::ForwardLineAndWord => {
                         let current_line_offset = end_cursor_itr.line_offset();
                         end_cursor_itr.forward_line();
@@ -1319,8 +1337,6 @@ impl TextTool {
                                 break;
                             }
                         }
-
-                        text_buffer.select_range(&start_cursor_itr_new, &end_cursor_itr);
                     }
                     ActionScope::BackwardLineAndWord => {
                         let current_line_offset = end_cursor_itr.line_offset();
@@ -1336,18 +1352,16 @@ impl TextTool {
                                 break;
                             }
                         }
-
-                        text_buffer.select_range(&start_cursor_itr_new, &end_cursor_itr);
                     }
                     ActionScope::ForwardWord => todo!(),
                     ActionScope::BackwardWord => todo!(),
                     ActionScope::SelectAll => {
                         start_cursor_itr_new = text_buffer.start_iter();
                         end_cursor_itr = text_buffer.end_iter();
-                        text_buffer.select_range(&start_cursor_itr_new, &end_cursor_itr);
                     }
                     _ => {}
                 }
+                text_buffer.select_range(&start_cursor_itr_new, &end_cursor_itr);
 
                 // eprintln!(
                 //     "{:?} {:?} {:?}",
