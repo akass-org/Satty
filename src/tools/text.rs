@@ -1336,19 +1336,6 @@ impl TextTool {
                         if has_selection {
                             cursor_itr = start_iter.unwrap();
                         } else {
-                            // let current_line_offset = cursor_itr.line_offset();
-                            // cursor_itr.backward_line();
-
-                            // while cursor_itr.line_offset() < current_line_offset {
-                            //     if !cursor_itr.forward_char() {
-                            //         break;
-                            //     }
-                            // }
-                            // while cursor_itr.line_offset() < current_line_offset {
-                            //     if !cursor_itr.backward_char() {
-                            //         break;
-                            //     }
-                            // }
                             let current_line_offset = cursor_itr.line_offset();
 
                             let mut last_line = 0;

@@ -903,9 +903,7 @@ impl Component for SketchBoard {
                 self.handle_text_commit(txt, sender);
                 ToolUpdateResult::Unmodified
             }
-            SketchBoardInput::Refresh => {
-                ToolUpdateResult::Redraw
-            }
+            SketchBoardInput::Refresh => ToolUpdateResult::Redraw,
         };
 
         // println!(" Result={:?}", result);

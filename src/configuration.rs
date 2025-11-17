@@ -549,7 +549,7 @@ impl Default for Configuration {
             keybinds: Keybinds::default(),
             monitor_scale: 1.0,
             zoom_factor: 1.1,
-            pan_step_size: 50.
+            pan_step_size: 50.,
         }
     }
 }

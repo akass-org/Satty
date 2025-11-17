@@ -1,6 +1,9 @@
 use anyhow::Result;
 use femtovg::{FontId, Path};
-use relm4::{Sender, gtk::gdk::{Key, ModifierType}};
+use relm4::{
+    gtk::gdk::{Key, ModifierType},
+    Sender,
+};
 
 use crate::{
     configuration::APP_CONFIG,

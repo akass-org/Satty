@@ -3,7 +3,7 @@ use std::cell::RefCell;
 use anyhow::Result;
 use femtovg::{imgref::Img, Color, ImageFilter, ImageFlags, ImageId, Paint, Path};
 
-use relm4::{Sender, gtk::gdk::Key};
+use relm4::{gtk::gdk::Key, Sender};
 
 use crate::{
     configuration::APP_CONFIG,

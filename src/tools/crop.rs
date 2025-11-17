@@ -6,7 +6,7 @@ use crate::{
 };
 use anyhow::Result;
 use femtovg::{Color, Paint, Path};
-use relm4::{Sender, gtk::gdk::Key};
+use relm4::{gtk::gdk::Key, Sender};
 
 use super::{Drawable, Tool, ToolUpdateResult, Tools};
 
