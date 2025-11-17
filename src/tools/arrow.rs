@@ -1,10 +1,10 @@
 use anyhow::Result;
 use femtovg::{FontId, Path};
-use relm4::gtk::gdk::{Key, ModifierType};
+use relm4::{Sender, gtk::gdk::{Key, ModifierType}};
 
 use crate::{
     math::{Angle, Vec2D},
-    sketch_board::{MouseButton, MouseEventMsg, MouseEventType},
+    sketch_board::{MouseButton, MouseEventMsg, MouseEventType, SketchBoardInput},
     style::Style,
 };
 
@@ -22,6 +22,7 @@ pub struct ArrowTool {
     arrow: Option<Arrow>,
     style: Style,
     input_enabled: bool,
+    sender: Option<Sender<SketchBoardInput>>,
 }
 
 impl Tool for ArrowTool {
@@ -121,6 +122,10 @@ impl Tool for ArrowTool {
     fn handle_style_event(&mut self, style: Style) -> ToolUpdateResult {
         self.style = style;
         ToolUpdateResult::Unmodified
+    }
+
+    fn set_sender(&mut self, sender: Sender<SketchBoardInput>) {
+        self.sender = Some(sender);
     }
 }
 

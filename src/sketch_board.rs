@@ -34,6 +34,7 @@ pub enum SketchBoardInput {
     ToolbarEvent(ToolbarEvent),
     RenderResult(RenderedImage, Vec<Action>),
     CommitEvent(TextEventMsg),
+    Refresh,
 }
 
 #[derive(Debug, Clone)]
@@ -539,7 +540,11 @@ impl SketchBoard {
         ToolUpdateResult::Unmodified
     }
 
-    fn handle_toolbar_event(&mut self, toolbar_event: ToolbarEvent) -> ToolUpdateResult {
+    fn handle_toolbar_event(
+        &mut self,
+        toolbar_event: ToolbarEvent,
+        sender: ComponentSender<Self>,
+    ) -> ToolUpdateResult {
         match toolbar_event {
             ToolbarEvent::ToolSelected(tool) => {
                 // deactivate old tool and save drawable, if any
@@ -565,6 +570,11 @@ impl SketchBoard {
                         im_context: self.im_context.clone(),
                         widget: widget_ref,
                     }));
+
+                // set sender for tool
+                self.active_tool
+                    .borrow_mut()
+                    .set_sender(sender.input_sender().clone());
 
                 // send style event
                 self.active_tool
@@ -883,7 +893,7 @@ impl Component for SketchBoard {
                 }
             }
             SketchBoardInput::ToolbarEvent(toolbar_event) => {
-                self.handle_toolbar_event(toolbar_event)
+                self.handle_toolbar_event(toolbar_event, sender)
             }
             SketchBoardInput::RenderResult(img, action) => {
                 self.handle_render_result(img, action);
@@ -893,9 +903,13 @@ impl Component for SketchBoard {
                 self.handle_text_commit(txt, sender);
                 ToolUpdateResult::Unmodified
             }
+            SketchBoardInput::Refresh => {
+                eprintln!("Refresh");
+                ToolUpdateResult::Redraw
+            }
         };
 
-        //println!("Event={:?} Result={:?}", msg, result);
+        // println!(" Result={:?}", result);
         match result {
             ToolUpdateResult::Commit(drawable) => {
                 self.renderer.commit(drawable);

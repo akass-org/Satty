@@ -17,6 +17,9 @@ use crate::{
 };
 
 use super::{Drawable, DrawableClone, InputContext, Tool, ToolUpdateResult, Tools};
+use crate::sketch_board::SketchBoardInput;
+use relm4::gtk::gdk::DisplayManager;
+use relm4::Sender;
 use std::cell::RefCell;
 
 #[derive(Clone, Debug)]
@@ -229,6 +232,8 @@ impl Drawable for Text {
                     continue; // 这一行没有选区
                 }
 
+                eprintln!("draw selection iter {} {}", overlap_start, overlap_end);
+
                 // 计算选区在行内的 x 坐标
                 let segments = self.segments_for_line_span(
                     canvas,
@@ -244,6 +249,10 @@ impl Drawable for Text {
                     let mut paint = Paint::color(Color::rgbaf(0.3, 0.5, 1.0, 0.3)); // 半透明蓝色
                     paint.set_anti_alias(true);
                     canvas.fill_path(&path, &paint);
+
+                    let w = end_x - start_x;
+                    let h = cursor_metrics.height;
+                    eprintln!("draw selection {} {} {} {}", start_x, top, w, h);
                 }
             }
         }
@@ -264,7 +273,7 @@ impl Drawable for Text {
 
             for line in &line_layouts {
                 let mut line_glyphs = Vec::new();
-                eprintln!("line: {:?}", line.range);
+                // eprintln!("line: {:?}", line.range);
 
                 let start = line.range.start;
                 let end = line.range.end;
@@ -517,7 +526,7 @@ impl Text {
         canvas: &mut femtovg::Canvas<femtovg::renderer::OpenGl>,
         context: &TextDrawingContext<'_>,
         line: &LineLayout,
-        range: Range<usize>,
+        range: Range<usize>, // 字符索引
     ) -> Vec<(f32, f32)> {
         if range.start >= range.end {
             return Vec::new();
@@ -532,12 +541,24 @@ impl Text {
         }
 
         let line_text = &context.text[line.range.clone()];
-        let start_offset = overlap_start.saturating_sub(line_start);
-        let end_offset = overlap_end.saturating_sub(line_start);
 
-        let prefix = &line_text[..start_offset];
-        let selected = &line_text[start_offset..end_offset];
+        // 将字符索引转成字节索引
+        let start_byte = line_text
+            .char_indices()
+            .nth(overlap_start.saturating_sub(line_start))
+            .map(|(i, _)| i)
+            .unwrap_or(line_text.len());
 
+        let end_byte = line_text
+            .char_indices()
+            .nth(overlap_end.saturating_sub(line_start))
+            .map(|(i, _)| i)
+            .unwrap_or(line_text.len());
+
+        let prefix = &line_text[..start_byte];
+        let selected = &line_text[start_byte..end_byte];
+
+        // 计算 x 坐标和宽度
         let start_x = self.pos.x + Self::text_width(canvas, context.paint, prefix);
         let width = Self::text_width(canvas, context.paint, selected);
 
@@ -655,6 +676,7 @@ pub struct TextTool {
     style: Style,
     input_enabled: bool,
     im_context: Option<InputContext>,
+    sender: Option<Sender<SketchBoardInput>>,
 }
 
 impl Tool for TextTool {
@@ -737,7 +759,7 @@ impl Tool for TextTool {
 
     fn handle_key_event(&mut self, event: KeyEventMsg) -> ToolUpdateResult {
         if let Some(t) = &mut self.text {
-            eprintln!("key event : {:?}", event);
+            // eprintln!("key event : {:?}", event);
             match event.key {
                 Key::Return => match event.modifier {
                     ModifierType::SHIFT_MASK => {
@@ -785,15 +807,6 @@ impl Tool for TextTool {
                             &mut t.text_buffer,
                             Action::Delete,
                             other_mask,
-                        );
-                    }
-                }
-                Key::a | Key::A => {
-                    if event.modifier == ModifierType::CONTROL_MASK {
-                        return Self::handle_text_buffer_action(
-                            &mut t.text_buffer,
-                            Action::Select,
-                            ActionScope::SelectAll,
                         );
                     }
                 }
@@ -865,6 +878,49 @@ impl Tool for TextTool {
                         );
                     }
                 }
+                Key::a | Key::A => {
+                    if event.modifier == ModifierType::CONTROL_MASK {
+                        return Self::handle_text_buffer_action(
+                            &mut t.text_buffer,
+                            Action::Select,
+                            ActionScope::SelectAll,
+                        );
+                    }
+                }
+                Key::v | Key::V => {
+                    let display = DisplayManager::get().default_display();
+                    if display.is_none() {
+                        eprintln!("Cannot open default display for clipboard.");
+                        return ToolUpdateResult::Unmodified;
+                    }
+                    let clipboard = display.unwrap().clipboard();
+                    let buffer = t.text_buffer.clone();
+
+                    eprintln!("TextTool: paste");
+
+                    let sender = self.sender.clone();
+
+                    glib::MainContext::default().spawn_local(async move {
+                        match clipboard.read_text_future().await {
+                            Ok(Some(text)) => {
+                                eprintln!("paste text: {}", text);
+                                // text: GString
+                                buffer.insert_at_cursor(&text);
+                                if let Some(sender) = sender {
+                                    sender.emit(SketchBoardInput::Refresh);
+                                }
+                            }
+                            Ok(None) => {
+                                eprintln!("Clipboard contains no text");
+                            }
+                            Err(err) => {
+                                eprintln!("Clipboard read error: {}", err);
+                            }
+                        }
+                    });
+
+                    return ToolUpdateResult::Redraw;
+                }
                 _ => {}
             }
         };
@@ -907,11 +963,10 @@ impl Tool for TextTool {
                                 line_index += 1;
                             }
 
-                            eprintln!("TextTool: click at index {} - {}", line_index, index);
                             let buffer = &t.text_buffer;
                             let mut cursur_iter = buffer.iter_at_mark(&buffer.get_insert());
                             cursur_iter.set_line(line_index);
-                            cursur_iter.set_line_index(index);
+                            cursur_iter.set_line_offset(index);
                             t.text_buffer.place_cursor(&cursur_iter);
 
                             if event.n_pressed == 2 {
@@ -998,6 +1053,10 @@ impl Tool for TextTool {
         } else {
             ToolUpdateResult::Unmodified
         }
+    }
+
+    fn set_sender(&mut self, sender: Sender<SketchBoardInput>) {
+        self.sender = Some(sender);
     }
 }
 enum ActionScope {
