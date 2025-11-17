@@ -1065,8 +1065,11 @@ impl Tool for TextTool {
                             let mut find_index = false;
 
                             let glyphs = t.glyphs.borrow();
-                            for line in glyphs.iter() {
-                                for glyph in line.iter() {
+                            for line in 0..glyphs.len() {
+                                let line_rect = glyphs.get(line).unwrap();
+
+                                // let line = glyphs.get(line).unwrap();
+                                for glyph in line_rect.iter() {
                                     // eprintln!("===== rect {:?} : {:?}", glyph, event.pos);
                                     if glyph.contains_point(pos.x as i32, pos.y as i32) {
                                         find_index = true;
@@ -1082,8 +1085,10 @@ impl Tool for TextTool {
                                     break;
                                 }
 
-                                let first_ele = line.iter().next().unwrap();
-                                if pos.y <= (first_ele.y() + first_ele.height()) as f32 {
+                                let first_ele = line_rect.iter().next().unwrap();
+                                if pos.y <= (first_ele.y() + first_ele.height()) as f32
+                                    && line != glyphs.len() - 1
+                                {
                                     index -= 1;
                                     break;
                                 }
