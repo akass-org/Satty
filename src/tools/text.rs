@@ -826,9 +826,16 @@ impl Tool for TextTool {
             match event.key {
                 Key::Return => match event.modifier {
                     ModifierType::SHIFT_MASK => {
-                        t.text_buffer
-                            .select_range(&t.text_buffer.end_iter(), &t.text_buffer.end_iter());
+                        //delete selection
+                        Self::handle_text_buffer_action(
+                            &mut t.text_buffer,
+                            Action::Delete,
+                            ActionScope::None,
+                        );
+
                         t.text_buffer.insert_at_cursor("\n");
+                        // t.text_buffer
+                        //     .select_range(&t.text_buffer.end_iter(), &t.text_buffer.end_iter());
                         return ToolUpdateResult::Redraw;
                     }
                     _ => {
@@ -984,7 +991,13 @@ impl Tool for TextTool {
                     let clipboard = display.unwrap().clipboard();
                     let buffer = t.text_buffer.clone();
 
-                    eprintln!("TextTool: paste");
+                    // eprintln!("TextTool: paste");
+
+                    Self::handle_text_buffer_action(
+                        &mut t.text_buffer,
+                        Action::Delete,
+                        ActionScope::None,
+                    );
 
                     let sender = self.sender.clone();
 
@@ -1134,9 +1147,13 @@ impl Tool for TextTool {
                                 index = 0;
                                 for glyph in line.iter() {
                                     eprintln!("===== rect {:?} : {:?}", glyph, event.pos);
-                                    if glyph.contains_point(global_pos.x as i32, global_pos.y as i32) {
+                                    if glyph
+                                        .contains_point(global_pos.x as i32, global_pos.y as i32)
+                                    {
                                         find_index = true;
-                                        if global_pos.x > glyph.x() as f32 + glyph.width() as f32 / 2.0 {
+                                        if global_pos.x
+                                            > glyph.x() as f32 + glyph.width() as f32 / 2.0
+                                        {
                                             index += 1;
                                         }
                                         break;
@@ -1145,7 +1162,9 @@ impl Tool for TextTool {
                                 }
 
                                 let first_ele = line.iter().next().unwrap();
-                                if find_index || global_pos.y <= (first_ele.y() + first_ele.height()) as f32 {
+                                if find_index
+                                    || global_pos.y <= (first_ele.y() + first_ele.height()) as f32
+                                {
                                     break;
                                 }
 
