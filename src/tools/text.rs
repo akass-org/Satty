@@ -1214,44 +1214,60 @@ impl TextTool {
             }
             Action::MoveCursor => {
                 let mut cursor_itr = start_cursor_itr;
+                let mut start_iter = None;
+                let mut end_iter = None;
 
+                let mut has_selection = false;
                 if let Some((start, end)) = text_buffer.selection_bounds() {
-                    let insert = text_buffer.get_insert();
-                    let insert_iter = text_buffer.iter_at_mark(&insert);
+                    start_iter = Some(start);
+                    end_iter = Some(end);
+                    has_selection = true;
+                }
 
-                    if insert_iter == start {
-                        cursor_itr = end;
-                    } else {
-                        cursor_itr = start;
+                match action_scope {
+                    ActionScope::ForwardChar => {
+                        if has_selection {
+                            cursor_itr = end_iter.unwrap();
+                            false
+                        } else {
+                            cursor_itr.forward_char()
+                        }
                     }
-                } else {
-                    match action_scope {
-                        ActionScope::ForwardChar => cursor_itr.forward_char(),
-                        ActionScope::BackwardChar => cursor_itr.backward_char(),
-                        ActionScope::ForwardLine => cursor_itr.forward_to_line_end(),
-                        ActionScope::ForwardWord => cursor_itr.forward_word_end(),
-                        ActionScope::BackwardWord => cursor_itr.backward_word_start(),
-                        ActionScope::BackwardLine => {
-                            if cursor_itr.starts_line() {
-                                cursor_itr.backward_line()
-                            } else {
-                                while !cursor_itr.starts_line() {
-                                    cursor_itr.backward_char();
-                                }
-                                false
-                            }
-                        }
-                        ActionScope::BufferEnd => {
-                            cursor_itr.forward_to_end();
+                    ActionScope::BackwardChar => {
+                        if has_selection {
+                            cursor_itr = start_iter.unwrap();
                             false
+                        } else {
+                            cursor_itr.backward_char()
                         }
-                        ActionScope::BufferStart => {
-                            while !cursor_itr.is_start() {
-                                cursor_itr.backward_line();
+                    }
+                    ActionScope::ForwardLine => cursor_itr.forward_to_line_end(),
+                    ActionScope::ForwardWord => cursor_itr.forward_word_end(),
+                    ActionScope::BackwardWord => cursor_itr.backward_word_start(),
+                    ActionScope::BackwardLine => {
+                        if cursor_itr.starts_line() {
+                            cursor_itr.backward_line()
+                        } else {
+                            while !cursor_itr.starts_line() {
+                                cursor_itr.backward_char();
                             }
                             false
                         }
-                        ActionScope::ForwardLineAndWord => {
+                    }
+                    ActionScope::BufferEnd => {
+                        cursor_itr.forward_to_end();
+                        false
+                    }
+                    ActionScope::BufferStart => {
+                        while !cursor_itr.is_start() {
+                            cursor_itr.backward_line();
+                        }
+                        false
+                    }
+                    ActionScope::ForwardLineAndWord => {
+                        if has_selection {
+                            cursor_itr = end_iter.unwrap();
+                        } else {
                             let current_line_offset = cursor_itr.line_offset();
                             cursor_itr.forward_line();
 
@@ -1265,9 +1281,13 @@ impl TextTool {
                                     break;
                                 }
                             }
-                            false
                         }
-                        ActionScope::BackwardLineAndWord => {
+                        false
+                    }
+                    ActionScope::BackwardLineAndWord => {
+                        if has_selection {
+                            cursor_itr = start_iter.unwrap();
+                        } else {
                             let current_line_offset = cursor_itr.line_offset();
                             cursor_itr.backward_line();
 
@@ -1281,16 +1301,18 @@ impl TextTool {
                                     break;
                                 }
                             }
-                            false
                         }
-                        _ => false, // should normally be whether movement was possible, but it's not used anyway
-                    };
-                }
+                        false
+                    }
+                    _ => false, // should normally be whether movement was possible, but it's not used anyway
+                };
+
+                text_buffer.select_range(&text_buffer.start_iter(), &text_buffer.start_iter());
 
                 text_buffer.place_cursor(&cursor_itr);
                 let new_cursor_itr = text_buffer.iter_at_mark(&text_buffer.get_insert());
 
-                if new_cursor_itr != start_cursor_itr {
+                if new_cursor_itr != start_cursor_itr || has_selection {
                     ToolUpdateResult::Redraw
                 } else {
                     ToolUpdateResult::Unmodified
