@@ -245,10 +245,6 @@ impl Drawable for Text {
                     line,
                     overlap_start..overlap_end,
                 );
-                // eprintln!(
-                //     "overlap {:?} {:?} {:?}",
-                //     overlap_start, overlap_end, segments
-                // );
                 for (start_x, end_x) in segments {
                     let mut path = Path::new();
 
@@ -262,10 +258,6 @@ impl Drawable for Text {
                     let mut paint = Paint::color(Color::rgbaf(0.3, 0.5, 1.0, 0.3)); // 半透明蓝色
                     paint.set_anti_alias(true);
                     canvas.fill_path(&path, &paint);
-
-                    let w = end_x - start_x;
-                    let h = cursor_metrics.height;
-                    eprintln!("draw selection {} {} {} {}", x, y, w, h);
                 }
             }
         }
@@ -822,7 +814,7 @@ impl Tool for TextTool {
 
     fn handle_key_event(&mut self, event: KeyEventMsg) -> ToolUpdateResult {
         if let Some(t) = &mut self.text {
-            eprintln!("key event : {:?}", event);
+            // eprintln!("key event : {:?}", event);
             match event.key {
                 Key::Return => match event.modifier {
                     ModifierType::SHIFT_MASK => {
@@ -1004,7 +996,7 @@ impl Tool for TextTool {
                     glib::MainContext::default().spawn_local(async move {
                         match clipboard.read_text_future().await {
                             Ok(Some(text)) => {
-                                eprintln!("paste text: {}", text);
+                                // eprintln!("paste text: {}", text);
                                 // text: GString
                                 buffer.insert_at_cursor(&text);
                                 if let Some(sender) = sender {
@@ -1020,7 +1012,45 @@ impl Tool for TextTool {
                         }
                     });
 
-                    return ToolUpdateResult::Redraw;
+                    return ToolUpdateResult::Unmodified;
+                }
+                Key::Insert => {
+                    let display = DisplayManager::get().default_display();
+                    if display.is_none() {
+                        eprintln!("Cannot open default display for clipboard.");
+                        return ToolUpdateResult::Unmodified;
+                    }
+                    let selection_clipboard = display.unwrap().primary_clipboard();
+                    let buffer = t.text_buffer.clone();
+
+                    Self::handle_text_buffer_action(
+                        &mut t.text_buffer,
+                        Action::Delete,
+                        ActionScope::None,
+                    );
+
+                    let sender = self.sender.clone();
+
+                    glib::MainContext::default().spawn_local(async move {
+                        match selection_clipboard.read_text_future().await {
+                            Ok(Some(text)) => {
+                                eprintln!("paste text: {}", text);
+                                // text: GString
+                                buffer.insert_at_cursor(&text);
+                                if let Some(sender) = sender {
+                                    sender.emit(SketchBoardInput::Refresh);
+                                }
+                            }
+                            Ok(None) => {
+                                eprintln!("selection_clipboard contains no text");
+                            }
+                            Err(err) => {
+                                eprintln!("selection_clipboard read error: {}", err);
+                            }
+                        }
+                    });
+
+                    return ToolUpdateResult::Unmodified;
                 }
                 _ => {}
             }
@@ -1031,6 +1061,7 @@ impl Tool for TextTool {
     fn handle_mouse_event(&mut self, event: MouseEventMsg) -> ToolUpdateResult {
         match event.type_ {
             MouseEventType::Click => {
+                eprintln!("click event : {:?}", event.button);
                 if event.button == MouseButton::Primary {
                     let pos = event.pos;
                     if let Some(t) = &mut self.text {
@@ -1264,11 +1295,6 @@ impl TextTool {
                 let mut end_cursor_itr = start_cursor_itr;
 
                 if let Some((start, end)) = text_buffer.selection_bounds() {
-                    eprintln!(
-                        "Delete action: selection {:?} {:?}",
-                        start.offset(),
-                        end.offset()
-                    );
                     start_cursor_itr = start;
                     end_cursor_itr = end;
                 } else {
@@ -1409,12 +1435,6 @@ impl TextTool {
                         start_cursor_itr_new = end;
                         end_cursor_itr = start;
                     }
-
-                    eprintln!(
-                        "change selection action: start {:?} end {:?}",
-                        start_cursor_itr.offset(),
-                        end.offset()
-                    );
                 }
 
                 match action_scope {

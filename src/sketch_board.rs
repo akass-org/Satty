@@ -904,7 +904,6 @@ impl Component for SketchBoard {
                 ToolUpdateResult::Unmodified
             }
             SketchBoardInput::Refresh => {
-                eprintln!("Refresh");
                 ToolUpdateResult::Redraw
             }
         };
