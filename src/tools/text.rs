@@ -34,6 +34,7 @@ pub struct Text {
     rect: RefCell<Rectangle>,
     glyphs: RefCell<Vec<Vec<Rectangle>>>,
     line_ranges: RefCell<Vec<Range<usize>>>,
+    cursor_visible: RefCell<bool>,
 }
 
 struct DisplayContent<'a> {
@@ -75,6 +76,7 @@ impl Text {
             rect: RefCell::new(Rectangle::new(0, 0, 0, 0)),
             glyphs: RefCell::new(Vec::new()),
             line_ranges: RefCell::new(Vec::new()),
+            cursor_visible: RefCell::new(true),
         }
     }
 
@@ -222,6 +224,7 @@ impl Drawable for Text {
             }
         }
 
+        let mut cursor_visible = self.cursor_visible.borrow_mut();
         //draw selection
         if let Some((sel_start_iter, sel_end_iter)) = self.text_buffer.selection_bounds() {
             let sel_start = sel_start_iter.offset() as usize;
@@ -262,6 +265,10 @@ impl Drawable for Text {
                     canvas.fill_path(&path, &paint);
                 }
             }
+
+            *cursor_visible = false;
+        } else {
+            *cursor_visible = true;
         }
 
         let mut draw_baseline = self.pos.y;
@@ -362,6 +369,7 @@ impl Drawable for Text {
                 &layout_context,
                 cursor_metrics,
                 display.cursor_byte_pos,
+                *cursor_visible
             );
         }
 
@@ -647,17 +655,21 @@ impl Text {
         context: &TextDrawingContext<'_>,
         cursor: CursorMetrics,
         cursor_byte_pos: usize,
+        cursor_visible: bool,
     ) {
         let (cursor_x, cursor_top) = self.caret_top_left(canvas, context, cursor_byte_pos, cursor);
         let caret_height = cursor.height;
 
         let mut caret_paint: Paint = self.style.into();
         caret_paint.set_font(&[font]);
-        let extra_height = caret_height * 0.05;
-        let mut path = Path::new();
-        path.move_to(cursor_x, cursor_top - extra_height);
-        path.line_to(cursor_x, cursor_top + caret_height + extra_height * 2.0);
-        canvas.fill_path(&path, &caret_paint);
+
+        if cursor_visible {
+            let extra_height = caret_height * 0.05;
+            let mut path = Path::new();
+            path.move_to(cursor_x, cursor_top - extra_height);
+            path.line_to(cursor_x, cursor_top + caret_height + extra_height * 2.0);
+            canvas.fill_path(&path, &caret_paint);
+        }
 
         if self.editing {
             if let Some(handle) = &self.im_context {
