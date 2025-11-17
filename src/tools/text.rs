@@ -301,10 +301,7 @@ impl Drawable for Text {
                         let w = (end_x - start_x) as i32;
                         line_glyphs.push(Rectangle::new(x, y, w, h));
 
-                        // eprintln!(
-                        //     "calculate {:?} - {:?}",
-                        //     cursor_metrics.height, cursor_height
-                        // );
+                        // eprintln!("calculate {:?} - {:?} - {:?} - {:?}", x, y, w, h);
 
                         if top == 0 {
                             top = y;
@@ -1041,16 +1038,12 @@ impl Tool for TextTool {
                         let rect = t.rect.borrow();
                         // eprintln!("===== rect {:?} : {:?}", rect, event.pos);
                         if rect.contains_point(pos.x as i32, pos.y as i32) {
-                            //todo
                             //calculate text cursor position
-
-                            let mut line_index = 0;
                             let mut index = 0;
                             let mut find_index = false;
 
                             let glyphs = t.glyphs.borrow();
                             for line in glyphs.iter() {
-                                index = 0;
                                 for glyph in line.iter() {
                                     // eprintln!("===== rect {:?} : {:?}", glyph, event.pos);
                                     if glyph.contains_point(pos.x as i32, pos.y as i32) {
@@ -1072,14 +1065,11 @@ impl Tool for TextTool {
                                     index -= 1;
                                     break;
                                 }
-
-                                line_index += 1;
                             }
 
                             let buffer = &t.text_buffer;
                             let mut cursur_iter = buffer.iter_at_mark(&buffer.get_insert());
-                            cursur_iter.set_line(line_index);
-                            cursur_iter.set_line_offset(index);
+                            cursur_iter.set_offset(index);
                             t.text_buffer.place_cursor(&cursur_iter);
 
                             if event.n_pressed == 2 {
@@ -1135,22 +1125,17 @@ impl Tool for TextTool {
             MouseEventType::UpdateDrag => {
                 if event.button == MouseButton::Primary {
                     let global_pos = self.drag_start_pos + event.pos;
-                    // eprintln!("drag to select");
                     if let Some(t) = &mut self.text {
                         let rect = t.rect.borrow();
                         if rect.contains_point(global_pos.x as i32, global_pos.y as i32) {
-                            //todo
                             //calculate text cursor position
-
-                            let mut line_index = 0;
                             let mut index = 0;
                             let mut find_index = false;
 
                             let glyphs = t.glyphs.borrow();
                             for line in glyphs.iter() {
-                                index = 0;
                                 for glyph in line.iter() {
-                                    // eprintln!("===== rect {:?} : {:?}", glyph, event.pos);
+                                    // eprintln!("===== rect {:?} : {:?}", glyph, global_pos);
                                     if glyph
                                         .contains_point(global_pos.x as i32, global_pos.y as i32)
                                     {
@@ -1171,15 +1156,11 @@ impl Tool for TextTool {
                                 {
                                     break;
                                 }
-
-                                line_index += 1;
                             }
 
                             let buffer = &t.text_buffer;
                             let mut cursur_iter = buffer.iter_at_mark(&buffer.get_insert());
-                            cursur_iter.set_line(line_index);
-                            cursur_iter.set_line_offset(index);
-                            // t.text_buffer.place_cursor(&cursur_iter);
+                            cursur_iter.set_offset(index);
 
                             let start_cursor_itr = buffer.iter_at_mark(&buffer.get_insert());
                             buffer.select_range(&start_cursor_itr, &cursur_iter);
