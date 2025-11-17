@@ -739,6 +739,7 @@ pub struct TextTool {
     input_enabled: bool,
     im_context: Option<InputContext>,
     sender: Option<Sender<SketchBoardInput>>,
+    drag_start_pos: Vec2D,
 }
 
 impl Tool for TextTool {
@@ -1034,7 +1035,7 @@ impl Tool for TextTool {
                             for line in glyphs.iter() {
                                 index = 0;
                                 for glyph in line.iter() {
-                                    eprintln!("===== rect {:?} : {:?}", glyph, event.pos);
+                                    // eprintln!("===== rect {:?} : {:?}", glyph, event.pos);
                                     if glyph.contains_point(pos.x as i32, pos.y as i32) {
                                         find_index = true;
                                         if pos.x > glyph.x() as f32 + glyph.width() as f32 / 2.0 {
@@ -1109,6 +1110,62 @@ impl Tool for TextTool {
                     self.set_input_enabled(false);
                     ToolUpdateResult::Unmodified
                 }
+            }
+            MouseEventType::BeginDrag => {
+                self.drag_start_pos = event.pos;
+                ToolUpdateResult::Unmodified
+            }
+            MouseEventType::UpdateDrag => {
+                if event.button == MouseButton::Primary {
+                    let global_pos = self.drag_start_pos + event.pos;
+                    // eprintln!("drag to select");
+                    if let Some(t) = &mut self.text {
+                        let rect = t.rect.borrow();
+                        if rect.contains_point(global_pos.x as i32, global_pos.y as i32) {
+                            //todo
+                            //calculate text cursor position
+
+                            let mut line_index = 0;
+                            let mut index = 0;
+                            let mut find_index = false;
+
+                            let glyphs = t.glyphs.borrow();
+                            for line in glyphs.iter() {
+                                index = 0;
+                                for glyph in line.iter() {
+                                    eprintln!("===== rect {:?} : {:?}", glyph, event.pos);
+                                    if glyph.contains_point(global_pos.x as i32, global_pos.y as i32) {
+                                        find_index = true;
+                                        if global_pos.x > glyph.x() as f32 + glyph.width() as f32 / 2.0 {
+                                            index += 1;
+                                        }
+                                        break;
+                                    }
+                                    index += 1;
+                                }
+
+                                let first_ele = line.iter().next().unwrap();
+                                if find_index || global_pos.y <= (first_ele.y() + first_ele.height()) as f32 {
+                                    break;
+                                }
+
+                                line_index += 1;
+                            }
+
+                            let buffer = &t.text_buffer;
+                            let mut cursur_iter = buffer.iter_at_mark(&buffer.get_insert());
+                            cursur_iter.set_line(line_index);
+                            cursur_iter.set_line_offset(index);
+                            // t.text_buffer.place_cursor(&cursur_iter);
+
+                            let start_cursor_itr = buffer.iter_at_mark(&buffer.get_insert());
+                            buffer.select_range(&start_cursor_itr, &cursur_iter);
+
+                            return ToolUpdateResult::Redraw;
+                        }
+                    }
+                }
+                ToolUpdateResult::Unmodified
             }
             _ => ToolUpdateResult::Unmodified,
         }
