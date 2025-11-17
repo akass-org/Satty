@@ -18,6 +18,7 @@ use crate::{
 
 use super::{Drawable, DrawableClone, InputContext, Tool, ToolUpdateResult, Tools};
 use crate::sketch_board::SketchBoardInput;
+use crate::tools::text;
 use relm4::gtk::gdk::DisplayManager;
 use relm4::Sender;
 use std::cell::RefCell;
@@ -32,6 +33,7 @@ pub struct Text {
     im_context: Option<InputContext>,
     rect: RefCell<Rectangle>,
     glyphs: RefCell<Vec<Vec<Rectangle>>>,
+    line_ranges: RefCell<Vec<Range<usize>>>,
 }
 
 struct DisplayContent<'a> {
@@ -72,6 +74,7 @@ impl Text {
             im_context,
             rect: RefCell::new(Rectangle::new(0, 0, 0, 0)),
             glyphs: RefCell::new(Vec::new()),
+            line_ranges: RefCell::new(Vec::new()),
         }
     }
 
@@ -157,6 +160,7 @@ impl Drawable for Text {
         let width = _bounds.1.x - self.pos.x;
 
         let lines = canvas.break_text_vec(width, text, &base_paint)?;
+        self.line_ranges.replace(lines.clone());
 
         let font_metrics = canvas.measure_font(&base_paint)?;
         let measured_cursor = canvas
@@ -739,11 +743,7 @@ impl Tool for TextTool {
             match event {
                 TextEventMsg::Commit(text) => {
                     //delete selection
-                    Self::handle_text_buffer_action(
-                        &mut t.text_buffer,
-                        Action::Delete,
-                        ActionScope::None,
-                    );
+                    Self::handle_text_buffer_action(t, Action::Delete, ActionScope::None);
                     //update input text
                     t.preedit = None;
                     t.text_buffer.insert_at_cursor(&text);
@@ -789,11 +789,7 @@ impl Tool for TextTool {
                 Key::Return => match event.modifier {
                     ModifierType::SHIFT_MASK => {
                         //delete selection
-                        Self::handle_text_buffer_action(
-                            &mut t.text_buffer,
-                            Action::Delete,
-                            ActionScope::None,
-                        );
+                        Self::handle_text_buffer_action(t, Action::Delete, ActionScope::None);
 
                         t.text_buffer.insert_at_cursor("\n");
                         // t.text_buffer
@@ -829,17 +825,9 @@ impl Tool for TextTool {
                     };
 
                     if event.modifier == ModifierType::CONTROL_MASK {
-                        return Self::handle_text_buffer_action(
-                            &mut t.text_buffer,
-                            Action::Delete,
-                            ctrl_mask,
-                        );
+                        return Self::handle_text_buffer_action(t, Action::Delete, ctrl_mask);
                     } else {
-                        return Self::handle_text_buffer_action(
-                            &mut t.text_buffer,
-                            Action::Delete,
-                            other_mask,
-                        );
+                        return Self::handle_text_buffer_action(t, Action::Delete, other_mask);
                     }
                 }
                 Key::Left | Key::Right | Key::Up | Key::Down => {
@@ -870,28 +858,24 @@ impl Tool for TextTool {
                     match event.modifier {
                         ModifierType::CONTROL_MASK => {
                             return Self::handle_text_buffer_action(
-                                &mut t.text_buffer,
+                                t,
                                 Action::MoveCursor,
                                 ctrl_mask,
                             );
                         }
                         ModifierType::SHIFT_MASK => {
-                            return Self::handle_text_buffer_action(
-                                &mut t.text_buffer,
-                                Action::Select,
-                                other_mask,
-                            );
+                            return Self::handle_text_buffer_action(t, Action::Select, other_mask);
                         }
                         m if m.contains(ModifierType::CONTROL_MASK | ModifierType::SHIFT_MASK) => {
                             return Self::handle_text_buffer_action(
-                                &mut t.text_buffer,
+                                t,
                                 Action::Select,
                                 combine_mask,
                             );
                         }
                         _ => {
                             return Self::handle_text_buffer_action(
-                                &mut t.text_buffer,
+                                t,
                                 Action::MoveCursor,
                                 other_mask,
                             );
@@ -914,21 +898,17 @@ impl Tool for TextTool {
                     match event.modifier {
                         ModifierType::CONTROL_MASK => {
                             return Self::handle_text_buffer_action(
-                                &mut t.text_buffer,
+                                t,
                                 Action::MoveCursor,
                                 ctrl_mask,
                             );
                         }
                         ModifierType::SHIFT_MASK => {
-                            return Self::handle_text_buffer_action(
-                                &mut t.text_buffer,
-                                Action::Select,
-                                other_mask,
-                            );
+                            return Self::handle_text_buffer_action(t, Action::Select, other_mask);
                         }
                         _ => {
                             return Self::handle_text_buffer_action(
-                                &mut t.text_buffer,
+                                t,
                                 Action::MoveCursor,
                                 other_mask,
                             );
@@ -938,7 +918,7 @@ impl Tool for TextTool {
                 Key::a | Key::A => {
                     if event.modifier == ModifierType::CONTROL_MASK {
                         return Self::handle_text_buffer_action(
-                            &mut t.text_buffer,
+                            t,
                             Action::Select,
                             ActionScope::SelectAll,
                         );
@@ -955,11 +935,7 @@ impl Tool for TextTool {
 
                     // eprintln!("TextTool: paste");
 
-                    Self::handle_text_buffer_action(
-                        &mut t.text_buffer,
-                        Action::Delete,
-                        ActionScope::None,
-                    );
+                    Self::handle_text_buffer_action(t, Action::Delete, ActionScope::None);
 
                     let sender = self.sender.clone();
 
@@ -993,11 +969,7 @@ impl Tool for TextTool {
                     let selection_clipboard = display.unwrap().primary_clipboard();
                     let buffer = t.text_buffer.clone();
 
-                    Self::handle_text_buffer_action(
-                        &mut t.text_buffer,
-                        Action::Delete,
-                        ActionScope::None,
-                    );
+                    Self::handle_text_buffer_action(t, Action::Delete, ActionScope::None);
 
                     let sender = self.sender.clone();
 
@@ -1238,10 +1210,11 @@ enum Action {
 
 impl TextTool {
     fn handle_text_buffer_action(
-        text_buffer: &mut TextBuffer,
+        text: &mut Text,
         action: Action,
         action_scope: ActionScope,
     ) -> ToolUpdateResult {
+        let text_buffer = &text.text_buffer;
         let mut start_cursor_itr = text_buffer.iter_at_mark(&text_buffer.get_insert());
 
         match action {
@@ -1325,38 +1298,93 @@ impl TextTool {
                             cursor_itr = end_iter.unwrap();
                         } else {
                             let current_line_offset = cursor_itr.line_offset();
-                            cursor_itr.forward_line();
 
-                            while cursor_itr.line_offset() < current_line_offset {
-                                if !cursor_itr.forward_char() {
+                            let mut next_line = 0;
+                            let mut offset = 0;
+
+                            let ranges = text.line_ranges.borrow();
+
+                            for i in 0..ranges.len() {
+                                let line = ranges.get(i).unwrap();
+
+                                if current_line_offset >= line.start as i32
+                                    && current_line_offset <= line.end as i32
+                                {
+                                    offset = if i == ranges.len() - 1 {
+                                        (line.end - line.start) as i32
+                                    } else {
+                                        current_line_offset - line.start as i32
+                                    };
+
+                                    next_line = if i == ranges.len() - 1 {
+                                        ranges.get(i).unwrap().start as i32
+                                    } else {
+                                        ranges.get(i + 1).unwrap().start as i32
+                                    };
                                     break;
                                 }
                             }
-                            while cursor_itr.line_offset() < current_line_offset {
-                                if !cursor_itr.backward_char() {
-                                    break;
-                                }
-                            }
+
+                            let move_offset = next_line + offset;
+
+                            cursor_itr.set_offset(move_offset);
                         }
+
                         false
                     }
                     ActionScope::BackwardLineAndWord => {
                         if has_selection {
                             cursor_itr = start_iter.unwrap();
                         } else {
-                            let current_line_offset = cursor_itr.line_offset();
-                            cursor_itr.backward_line();
+                            // let current_line_offset = cursor_itr.line_offset();
+                            // cursor_itr.backward_line();
 
-                            while cursor_itr.line_offset() < current_line_offset {
-                                if !cursor_itr.forward_char() {
+                            // while cursor_itr.line_offset() < current_line_offset {
+                            //     if !cursor_itr.forward_char() {
+                            //         break;
+                            //     }
+                            // }
+                            // while cursor_itr.line_offset() < current_line_offset {
+                            //     if !cursor_itr.backward_char() {
+                            //         break;
+                            //     }
+                            // }
+                            let current_line_offset = cursor_itr.line_offset();
+
+                            let mut last_line = 0;
+                            let mut offset = 0;
+
+                            let ranges = text.line_ranges.borrow();
+
+                            for i in 0..ranges.len() {
+                                let line = ranges.get(i).unwrap();
+
+                                if current_line_offset >= line.start as i32
+                                    && current_line_offset <= line.end as i32
+                                {
+                                    offset = if i == 0 {
+                                        0
+                                    } else {
+                                        current_line_offset - line.start as i32
+                                    };
+
+                                    last_line = if i == 0 {
+                                        ranges.get(i).unwrap().start as i32
+                                    } else {
+                                        ranges.get(i - 1).unwrap().start as i32
+                                    };
                                     break;
                                 }
                             }
-                            while cursor_itr.line_offset() < current_line_offset {
-                                if !cursor_itr.backward_char() {
-                                    break;
-                                }
-                            }
+
+                            let move_offset = last_line + offset;
+
+                            // eprintln!(
+                            //     "move_offset: {} last_line: {} offset: {} current_line_offset: {}",
+                            //     move_offset, last_line, offset, current_line_offset
+                            // );
+
+                            cursor_itr.set_offset(move_offset);
                         }
                         false
                     }
@@ -1412,33 +1440,79 @@ impl TextTool {
                     }
                     ActionScope::ForwardLineAndWord => {
                         let current_line_offset = end_cursor_itr.line_offset();
-                        end_cursor_itr.forward_line();
 
-                        while end_cursor_itr.line_offset() < current_line_offset {
-                            if !end_cursor_itr.forward_char() {
+                        let mut next_line = 0;
+                        let mut offset = 0;
+
+                        let ranges = text.line_ranges.borrow();
+
+                        for i in 0..ranges.len() {
+                            let line = ranges.get(i).unwrap();
+
+                            if current_line_offset >= line.start as i32
+                                && current_line_offset <= line.end as i32
+                            {
+                                offset = if i == ranges.len() - 1 {
+                                    (line.end - line.start) as i32
+                                } else {
+                                    current_line_offset - line.start as i32
+                                };
+
+                                next_line = if i == ranges.len() - 1 {
+                                    ranges.get(i).unwrap().start as i32
+                                } else {
+                                    ranges.get(i + 1).unwrap().start as i32
+                                };
                                 break;
                             }
                         }
-                        while end_cursor_itr.line_offset() < current_line_offset {
-                            if !end_cursor_itr.backward_char() {
-                                break;
-                            }
-                        }
+
+                        let move_offset = next_line + offset;
+
+                        // eprintln!(
+                        //     "move_offset: {} next_line: {} offset: {} current_line_offset: {}",
+                        //     move_offset, next_line, offset, current_line_offset
+                        // );
+
+                        end_cursor_itr.set_offset(move_offset);
                     }
                     ActionScope::BackwardLineAndWord => {
                         let current_line_offset = end_cursor_itr.line_offset();
-                        end_cursor_itr.backward_line();
 
-                        while end_cursor_itr.line_offset() < current_line_offset {
-                            if !end_cursor_itr.forward_char() {
+                        let mut last_line = 0;
+                        let mut offset = 0;
+
+                        let ranges = text.line_ranges.borrow();
+
+                        for i in 0..ranges.len() {
+                            let line = ranges.get(i).unwrap();
+
+                            if current_line_offset >= line.start as i32
+                                && current_line_offset <= line.end as i32
+                            {
+                                offset = if i == 0 {
+                                    0
+                                } else {
+                                    current_line_offset - line.start as i32
+                                };
+
+                                last_line = if i == 0 {
+                                    ranges.get(i).unwrap().start as i32
+                                } else {
+                                    ranges.get(i - 1).unwrap().start as i32
+                                };
                                 break;
                             }
                         }
-                        while end_cursor_itr.line_offset() < current_line_offset {
-                            if !end_cursor_itr.backward_char() {
-                                break;
-                            }
-                        }
+
+                        let move_offset = last_line + offset;
+
+                        // eprintln!(
+                        //     "move_offset: {} last_line: {} offset: {} current_line_offset: {}",
+                        //     move_offset, last_line, offset, current_line_offset
+                        // );
+
+                        end_cursor_itr.set_offset(move_offset);
                     }
                     ActionScope::ForwardWord => {
                         end_cursor_itr.forward_word_end();
