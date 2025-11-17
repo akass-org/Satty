@@ -153,10 +153,8 @@ impl Drawable for Text {
 
         let transform = canvas.transform();
         let canva_scale = transform.average_scale();
-        let canvas_offset_x = transform[4];
-        let canvas_width = canvas.width() as f32;
 
-        let width = canvas_width / canva_scale - self.pos.x - canvas_offset_x;
+        let width = _bounds.1.x - self.pos.x;
 
         let lines = canvas.break_text_vec(width, text, &base_paint)?;
 
@@ -586,38 +584,6 @@ impl Text {
 
         vec![(start_x, start_x + width.max(0.0))]
     }
-
-    // fn segments_for_line_span(
-    //     &self,
-    //     canvas: &mut femtovg::Canvas<femtovg::renderer::OpenGl>,
-    //     context: &TextDrawingContext<'_>,
-    //     line: &LineLayout,
-    //     range: Range<usize>,
-    // ) -> Vec<(f32, f32)> {
-    //     if range.start >= range.end {
-    //         return Vec::new();
-    //     }
-
-    //     let line_start = line.range.start;
-    //     let line_end = line.range.end;
-    //     let overlap_start = range.start.max(line_start).min(line_end);
-    //     let overlap_end = range.end.max(line_start).min(line_end);
-    //     if overlap_start >= overlap_end {
-    //         return Vec::new();
-    //     }
-
-    //     let line_text = &context.text[line.range.clone()];
-    //     let start_offset = overlap_start.saturating_sub(line_start);
-    //     let end_offset = overlap_end.saturating_sub(line_start);
-
-    //     let prefix = &line_text[..start_offset];
-    //     let selected = &line_text[start_offset..end_offset];
-
-    //     let start_x = self.pos.x + Self::text_width(canvas, context.paint, prefix);
-    //     let width = Self::text_width(canvas, context.paint, selected);
-
-    //     vec![(start_x, start_x + width.max(0.0))]
-    // }
 
     fn caret_top_left(
         &self,
@@ -1158,7 +1124,7 @@ impl Tool for TextTool {
 
                     return_value
                 } else {
-                    self.set_input_enabled(false);
+                    // self.set_input_enabled(false);
                     ToolUpdateResult::Unmodified
                 }
             }
