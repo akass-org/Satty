@@ -1297,7 +1297,12 @@ impl TextTool {
                         if has_selection {
                             cursor_itr = end_iter.unwrap();
                         } else {
-                            let current_line_offset = cursor_itr.line_offset();
+                            let content = &text.text_buffer.text(
+                                &text.text_buffer.start_iter(),
+                                &text.text_buffer.end_iter(),
+                                false,
+                            );
+                            let current_offset = cursor_itr.offset();
 
                             let mut next_line = 0;
                             let mut offset = 0;
@@ -1307,25 +1312,49 @@ impl TextTool {
                             for i in 0..ranges.len() {
                                 let line = ranges.get(i).unwrap();
 
-                                if current_line_offset >= line.start as i32
-                                    && current_line_offset <= line.end as i32
-                                {
+                                let start = content[..line.start].chars().count();
+                                let end = content[..line.end].chars().count();
+
+                                if current_offset >= start as i32 && current_offset <= end as i32 {
                                     offset = if i == ranges.len() - 1 {
-                                        (line.end - line.start) as i32
+                                        (end - start) as i32
                                     } else {
-                                        current_line_offset - line.start as i32
+                                        let temp = current_offset - start as i32;
+                                        // current_offset - start as i32
+                                        let next_start = content
+                                            [..ranges.get(i + 1).unwrap().start]
+                                            .chars()
+                                            .count();
+                                        let next_end = content[..ranges.get(i + 1).unwrap().end]
+                                            .chars()
+                                            .count();
+
+                                        let limit = (next_end - next_start) as i32;
+                                        // eprintln!("temp {} {limit}", temp);
+                                        if temp > limit {
+                                            limit
+                                        } else {
+                                            temp
+                                        }
                                     };
 
                                     next_line = if i == ranges.len() - 1 {
-                                        ranges.get(i).unwrap().start as i32
+                                        content[..ranges.get(i).unwrap().start].chars().count()
+                                            as i32
                                     } else {
-                                        ranges.get(i + 1).unwrap().start as i32
+                                        content[..ranges.get(i + 1).unwrap().start].chars().count()
+                                            as i32
                                     };
                                     break;
                                 }
                             }
 
                             let move_offset = next_line + offset;
+
+                            eprintln!(
+                                "move_offset: {} next_line: {} offset: {} current_line_offset: {}",
+                                move_offset, next_line, offset, current_offset
+                            );
 
                             cursor_itr.set_offset(move_offset);
                         }
@@ -1336,7 +1365,12 @@ impl TextTool {
                         if has_selection {
                             cursor_itr = start_iter.unwrap();
                         } else {
-                            let current_line_offset = cursor_itr.line_offset();
+                            let content = &text.text_buffer.text(
+                                &text.text_buffer.start_iter(),
+                                &text.text_buffer.end_iter(),
+                                false,
+                            );
+                            let current_offset = cursor_itr.offset();
 
                             let mut last_line = 0;
                             let mut offset = 0;
@@ -1346,19 +1380,37 @@ impl TextTool {
                             for i in 0..ranges.len() {
                                 let line = ranges.get(i).unwrap();
 
-                                if current_line_offset >= line.start as i32
-                                    && current_line_offset <= line.end as i32
-                                {
+                                let start = content[..line.start].chars().count();
+                                let end = content[..line.end].chars().count();
+
+                                if current_offset >= start as i32 && current_offset <= end as i32 {
                                     offset = if i == 0 {
                                         0
                                     } else {
-                                        current_line_offset - line.start as i32
+                                        let temp = current_offset - start as i32;
+                                        let last_start = content
+                                            [..ranges.get(i - 1).unwrap().start]
+                                            .chars()
+                                            .count();
+                                        let last_end = content[..ranges.get(i - 1).unwrap().end]
+                                            .chars()
+                                            .count();
+
+                                        let limit = (last_end - last_start) as i32;
+                                        // eprintln!("temp {} {limit}", temp);
+                                        if temp > limit {
+                                            limit
+                                        } else {
+                                            temp
+                                        }
                                     };
 
                                     last_line = if i == 0 {
-                                        ranges.get(i).unwrap().start as i32
+                                        content[..ranges.get(i).unwrap().start].chars().count()
+                                            as i32
                                     } else {
-                                        ranges.get(i - 1).unwrap().start as i32
+                                        content[..ranges.get(i - 1).unwrap().start].chars().count()
+                                            as i32
                                     };
                                     break;
                                 }
@@ -1366,10 +1418,10 @@ impl TextTool {
 
                             let move_offset = last_line + offset;
 
-                            // eprintln!(
-                            //     "move_offset: {} last_line: {} offset: {} current_line_offset: {}",
-                            //     move_offset, last_line, offset, current_line_offset
-                            // );
+                            eprintln!(
+                                "move_offset: {} last_line: {} offset: {} current_line_offset: {}",
+                                move_offset, last_line, offset, current_offset
+                            );
 
                             cursor_itr.set_offset(move_offset);
                         }
@@ -1426,7 +1478,12 @@ impl TextTool {
                         }
                     }
                     ActionScope::ForwardLineAndWord => {
-                        let current_line_offset = end_cursor_itr.line_offset();
+                        let content = &text.text_buffer.text(
+                            &text.text_buffer.start_iter(),
+                            &text.text_buffer.end_iter(),
+                            false,
+                        );
+                        let current_offset = end_cursor_itr.offset();
 
                         let mut next_line = 0;
                         let mut offset = 0;
@@ -1435,20 +1492,34 @@ impl TextTool {
 
                         for i in 0..ranges.len() {
                             let line = ranges.get(i).unwrap();
+                            let start = content[..line.start].chars().count();
+                            let end = content[..line.end].chars().count();
 
-                            if current_line_offset >= line.start as i32
-                                && current_line_offset <= line.end as i32
-                            {
+                            if current_offset >= start as i32 && current_offset <= end as i32 {
                                 offset = if i == ranges.len() - 1 {
-                                    (line.end - line.start) as i32
+                                    (end - start) as i32
                                 } else {
-                                    current_line_offset - line.start as i32
+                                    let temp = current_offset - start as i32;
+                                    // current_offset - start as i32
+                                    let next_start =
+                                        content[..ranges.get(i + 1).unwrap().start].chars().count();
+                                    let next_end =
+                                        content[..ranges.get(i + 1).unwrap().end].chars().count();
+
+                                    let limit = (next_end - next_start) as i32;
+                                    // eprintln!("temp {} {limit}", temp);
+                                    if temp > limit {
+                                        limit
+                                    } else {
+                                        temp
+                                    }
                                 };
 
                                 next_line = if i == ranges.len() - 1 {
-                                    ranges.get(i).unwrap().start as i32
+                                    content[..ranges.get(i).unwrap().start].chars().count() as i32
                                 } else {
-                                    ranges.get(i + 1).unwrap().start as i32
+                                    content[..ranges.get(i + 1).unwrap().start].chars().count()
+                                        as i32
                                 };
                                 break;
                             }
@@ -1458,13 +1529,18 @@ impl TextTool {
 
                         // eprintln!(
                         //     "move_offset: {} next_line: {} offset: {} current_line_offset: {}",
-                        //     move_offset, next_line, offset, current_line_offset
+                        //     move_offset, next_line, offset, current_offset
                         // );
 
                         end_cursor_itr.set_offset(move_offset);
                     }
                     ActionScope::BackwardLineAndWord => {
-                        let current_line_offset = end_cursor_itr.line_offset();
+                        let content = &text.text_buffer.text(
+                            &text.text_buffer.start_iter(),
+                            &text.text_buffer.end_iter(),
+                            false,
+                        );
+                        let current_offset = end_cursor_itr.offset();
 
                         let mut last_line = 0;
                         let mut offset = 0;
@@ -1473,20 +1549,33 @@ impl TextTool {
 
                         for i in 0..ranges.len() {
                             let line = ranges.get(i).unwrap();
+                            let start = content[..line.start].chars().count();
+                            let end = content[..line.end].chars().count();
 
-                            if current_line_offset >= line.start as i32
-                                && current_line_offset <= line.end as i32
-                            {
+                            if current_offset >= start as i32 && current_offset <= end as i32 {
                                 offset = if i == 0 {
                                     0
                                 } else {
-                                    current_line_offset - line.start as i32
+                                    let temp = current_offset - start as i32;
+                                    let last_start =
+                                        content[..ranges.get(i - 1).unwrap().start].chars().count();
+                                    let last_end =
+                                        content[..ranges.get(i - 1).unwrap().end].chars().count();
+
+                                    let limit = (last_end - last_start) as i32;
+                                    // eprintln!("temp {} {limit}", temp);
+                                    if temp > limit {
+                                        limit
+                                    } else {
+                                        temp
+                                    }
                                 };
 
                                 last_line = if i == 0 {
-                                    ranges.get(i).unwrap().start as i32
+                                    content[..ranges.get(i).unwrap().start].chars().count() as i32
                                 } else {
-                                    ranges.get(i - 1).unwrap().start as i32
+                                    content[..ranges.get(i - 1).unwrap().start].chars().count()
+                                        as i32
                                 };
                                 break;
                             }
