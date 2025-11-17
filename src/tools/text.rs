@@ -889,6 +889,14 @@ impl Tool for TextTool {
                         _ => ActionScope::None,
                     };
 
+                    let combine_mask = match event.key {
+                        Key::Left => ActionScope::BackwardWord,
+                        Key::Right => ActionScope::ForwardWord,
+                        Key::Up => ActionScope::BackwardLineAndWord,
+                        Key::Down => ActionScope::ForwardLineAndWord,
+                        _ => ActionScope::None,
+                    };
+
                     match event.modifier {
                         ModifierType::CONTROL_MASK => {
                             return Self::handle_text_buffer_action(
@@ -902,6 +910,13 @@ impl Tool for TextTool {
                                 &mut t.text_buffer,
                                 Action::Select,
                                 other_mask,
+                            );
+                        }
+                        m if m.contains(ModifierType::CONTROL_MASK | ModifierType::SHIFT_MASK) => {
+                            return Self::handle_text_buffer_action(
+                                &mut t.text_buffer,
+                                Action::Select,
+                                combine_mask,
                             );
                         }
                         _ => {
@@ -1353,8 +1368,12 @@ impl TextTool {
                             }
                         }
                     }
-                    ActionScope::ForwardWord => todo!(),
-                    ActionScope::BackwardWord => todo!(),
+                    ActionScope::ForwardWord => {
+                        end_cursor_itr.forward_word_end();
+                    }
+                    ActionScope::BackwardWord => {
+                        end_cursor_itr.backward_word_start();
+                    }
                     ActionScope::SelectAll => {
                         start_cursor_itr_new = text_buffer.start_iter();
                         end_cursor_itr = text_buffer.end_iter();
