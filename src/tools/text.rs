@@ -292,7 +292,7 @@ impl Drawable for Text {
                 let end = text[..line.range.end].chars().count();
 
                 for i in start..end {
-                    eprintln!("draw char {} {}", i, i + 1);
+                    // eprintln!("draw char {} {}", i, i + 1);
                     // 计算选区在行内的 x 坐标
                     let segments =
                         self.segments_for_line_span(canvas, &layout_context, line, i..i + 1);
@@ -1009,7 +1009,7 @@ impl Tool for TextTool {
                             for line in glyphs.iter() {
                                 index = 0;
                                 for glyph in line.iter() {
-                                    // eprintln!("===== rect {:?} : {:?}", glyph, event.pos);
+                                    eprintln!("===== rect {:?} : {:?}", glyph, event.pos);
                                     if glyph.contains_point(pos.x as i32, pos.y as i32) {
                                         find_index = true;
                                         if pos.x > glyph.x() as f32 + glyph.width() as f32 / 2.0 {
@@ -1019,9 +1019,17 @@ impl Tool for TextTool {
                                     }
                                     index += 1;
                                 }
+
                                 if find_index {
                                     break;
                                 }
+
+                                let first_ele = line.iter().next().unwrap();
+                                if pos.y <= (first_ele.y() + first_ele.height()) as f32 {
+                                    index -= 1;
+                                    break;
+                                }
+
                                 line_index += 1;
                             }
 
