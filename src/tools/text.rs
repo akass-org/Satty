@@ -655,7 +655,6 @@ pub struct TextTool {
     style: Style,
     input_enabled: bool,
     im_context: Option<InputContext>,
-    is_double_click: bool,
 }
 
 impl Tool for TextTool {
@@ -739,170 +738,134 @@ impl Tool for TextTool {
     fn handle_key_event(&mut self, event: KeyEventMsg) -> ToolUpdateResult {
         if let Some(t) = &mut self.text {
             eprintln!("key event : {:?}", event);
-            if event.key == Key::Return {
-                if event.modifier == ModifierType::SHIFT_MASK {
-                    //clear selection
-                    t.text_buffer
-                        .select_range(&t.text_buffer.end_iter(), &t.text_buffer.end_iter());
-                    t.text_buffer.insert_at_cursor("\n");
-                    return ToolUpdateResult::Redraw;
-                } else {
-                    t.preedit = None;
-                    t.editing = false;
-                    t.im_context = None;
-                    t.text_buffer
-                        .select_range(&t.text_buffer.start_iter(), &t.text_buffer.start_iter());
-                    let result = t.clone_box();
-                    self.text = None;
-                    self.input_enabled = false;
-                    return ToolUpdateResult::Commit(result);
+            match event.key {
+                Key::Return => match event.modifier {
+                    ModifierType::SHIFT_MASK => {
+                        t.text_buffer
+                            .select_range(&t.text_buffer.end_iter(), &t.text_buffer.end_iter());
+                        t.text_buffer.insert_at_cursor("\n");
+                        return ToolUpdateResult::Redraw;
+                    }
+                    _ => {
+                        t.preedit = None;
+                        t.editing = false;
+                        t.im_context = None;
+                        t.text_buffer
+                            .select_range(&t.text_buffer.start_iter(), &t.text_buffer.start_iter());
+                        let result = t.clone_box();
+                        self.text = None;
+                        self.input_enabled = false;
+                        return ToolUpdateResult::Commit(result);
+                    }
+                },
+                Key::Escape => {
+                    return self.handle_deactivated();
                 }
-            } else if event.key == Key::Escape {
-                return self.handle_deactivated();
-            } else if event.key == Key::BackSpace {
-                if event.modifier == ModifierType::CONTROL_MASK {
-                    return Self::handle_text_buffer_action(
-                        &mut t.text_buffer,
-                        Action::Delete,
-                        ActionScope::BackwardWord,
-                    );
-                } else {
-                    return Self::handle_text_buffer_action(
-                        &mut t.text_buffer,
-                        Action::Delete,
-                        ActionScope::BackwardChar,
-                    );
+                Key::BackSpace | Key::Delete => {
+                    let ctrl_mask = match event.key {
+                        Key::BackSpace => ActionScope::BackwardWord,
+                        Key::Delete => ActionScope::ForwardWord,
+                        _ => ActionScope::None,
+                    };
+
+                    let other_mask = match event.key {
+                        Key::BackSpace => ActionScope::BackwardChar,
+                        Key::Delete => ActionScope::ForwardChar,
+                        _ => ActionScope::None,
+                    };
+
+                    if event.modifier == ModifierType::CONTROL_MASK {
+                        return Self::handle_text_buffer_action(
+                            &mut t.text_buffer,
+                            Action::Delete,
+                            ctrl_mask,
+                        );
+                    } else {
+                        return Self::handle_text_buffer_action(
+                            &mut t.text_buffer,
+                            Action::Delete,
+                            other_mask,
+                        );
+                    }
                 }
-            } else if event.key == Key::Delete {
-                if event.modifier == ModifierType::CONTROL_MASK {
-                    return Self::handle_text_buffer_action(
-                        &mut t.text_buffer,
-                        Action::Delete,
-                        ActionScope::ForwardWord,
-                    );
-                } else {
-                    return Self::handle_text_buffer_action(
-                        &mut t.text_buffer,
-                        Action::Delete,
-                        ActionScope::ForwardChar,
-                    );
+                Key::a | Key::A => {
+                    if event.modifier == ModifierType::CONTROL_MASK {
+                        return Self::handle_text_buffer_action(
+                            &mut t.text_buffer,
+                            Action::Select,
+                            ActionScope::SelectAll,
+                        );
+                    }
                 }
-            } else if (event.key == Key::a || event.key == Key::A)
-                && event.modifier == ModifierType::CONTROL_MASK
-            {
-                return Self::handle_text_buffer_action(
-                    &mut t.text_buffer,
-                    Action::Select,
-                    ActionScope::SelectAll,
-                );
-            } else if event.key == Key::Left {
-                if event.modifier == ModifierType::CONTROL_MASK {
-                    return Self::handle_text_buffer_action(
-                        &mut t.text_buffer,
-                        Action::MoveCursor,
-                        ActionScope::BackwardWord,
-                    );
-                } else if event.modifier == ModifierType::SHIFT_MASK {
-                    return Self::handle_text_buffer_action(
-                        &mut t.text_buffer,
-                        Action::Select,
-                        ActionScope::BackwardChar,
-                    );
-                } else {
-                    return Self::handle_text_buffer_action(
-                        &mut t.text_buffer,
-                        Action::MoveCursor,
-                        ActionScope::BackwardChar,
-                    );
+                Key::Left | Key::Right | Key::Up | Key::Down => {
+                    let ctrl_mask = match event.key {
+                        Key::Left => ActionScope::BackwardWord,
+                        Key::Right => ActionScope::ForwardWord,
+                        Key::Up => ActionScope::BackwardLineAndWord,
+                        Key::Down => ActionScope::ForwardLineAndWord,
+                        _ => ActionScope::None,
+                    };
+
+                    let other_mask = match event.key {
+                        Key::Left => ActionScope::BackwardChar,
+                        Key::Right => ActionScope::ForwardChar,
+                        Key::Up => ActionScope::BackwardLineAndWord,
+                        Key::Down => ActionScope::ForwardLineAndWord,
+                        _ => ActionScope::None,
+                    };
+
+                    match event.modifier {
+                        ModifierType::CONTROL_MASK => {
+                            return Self::handle_text_buffer_action(
+                                &mut t.text_buffer,
+                                Action::MoveCursor,
+                                ctrl_mask,
+                            );
+                        }
+                        ModifierType::SHIFT_MASK => {
+                            return Self::handle_text_buffer_action(
+                                &mut t.text_buffer,
+                                Action::Select,
+                                other_mask,
+                            );
+                        }
+                        _ => {
+                            return Self::handle_text_buffer_action(
+                                &mut t.text_buffer,
+                                Action::MoveCursor,
+                                other_mask,
+                            );
+                        }
+                    }
                 }
-            } else if event.key == Key::Right {
-                if event.modifier == ModifierType::CONTROL_MASK {
-                    return Self::handle_text_buffer_action(
-                        &mut t.text_buffer,
-                        Action::MoveCursor,
-                        ActionScope::ForwardWord,
-                    );
-                } else if event.modifier == ModifierType::SHIFT_MASK {
-                    return Self::handle_text_buffer_action(
-                        &mut t.text_buffer,
-                        Action::Select,
-                        ActionScope::ForwardChar,
-                    );
-                } else {
-                    return Self::handle_text_buffer_action(
-                        &mut t.text_buffer,
-                        Action::MoveCursor,
-                        ActionScope::ForwardChar,
-                    );
+                Key::Home | Key::End => {
+                    let ctrl_mask = match event.key {
+                        Key::Home => ActionScope::BufferStart,
+                        Key::End => ActionScope::BufferEnd,
+                        _ => ActionScope::None,
+                    };
+
+                    let other_mask = match event.key {
+                        Key::Home => ActionScope::BackwardLine,
+                        Key::End => ActionScope::ForwardLine,
+                        _ => ActionScope::None,
+                    };
+
+                    if event.modifier == ModifierType::CONTROL_MASK {
+                        return Self::handle_text_buffer_action(
+                            &mut t.text_buffer,
+                            Action::MoveCursor,
+                            ctrl_mask,
+                        );
+                    } else {
+                        return Self::handle_text_buffer_action(
+                            &mut t.text_buffer,
+                            Action::MoveCursor,
+                            other_mask,
+                        );
+                    }
                 }
-            } else if event.key == Key::Up {
-                if event.modifier == ModifierType::CONTROL_MASK {
-                    return Self::handle_text_buffer_action(
-                        &mut t.text_buffer,
-                        Action::MoveCursor,
-                        ActionScope::BackwardLineAndWord,
-                    );
-                } else if event.modifier == ModifierType::SHIFT_MASK {
-                    return Self::handle_text_buffer_action(
-                        &mut t.text_buffer,
-                        Action::Select,
-                        ActionScope::BackwardLineAndWord,
-                    );
-                } else {
-                    return Self::handle_text_buffer_action(
-                        &mut t.text_buffer,
-                        Action::MoveCursor,
-                        ActionScope::BackwardLineAndWord,
-                    );
-                }
-            } else if event.key == Key::Down {
-                if event.modifier == ModifierType::CONTROL_MASK {
-                    return Self::handle_text_buffer_action(
-                        &mut t.text_buffer,
-                        Action::MoveCursor,
-                        ActionScope::ForwardLineAndWord,
-                    );
-                } else if event.modifier == ModifierType::SHIFT_MASK {
-                    return Self::handle_text_buffer_action(
-                        &mut t.text_buffer,
-                        Action::Select,
-                        ActionScope::ForwardLineAndWord,
-                    );
-                } else {
-                    return Self::handle_text_buffer_action(
-                        &mut t.text_buffer,
-                        Action::MoveCursor,
-                        ActionScope::ForwardLineAndWord,
-                    );
-                }
-            } else if event.key == Key::Home {
-                if event.modifier == ModifierType::CONTROL_MASK {
-                    return Self::handle_text_buffer_action(
-                        &mut t.text_buffer,
-                        Action::MoveCursor,
-                        ActionScope::BufferStart,
-                    );
-                } else {
-                    return Self::handle_text_buffer_action(
-                        &mut t.text_buffer,
-                        Action::MoveCursor,
-                        ActionScope::BackwardLine,
-                    );
-                }
-            } else if event.key == Key::End {
-                if event.modifier == ModifierType::CONTROL_MASK {
-                    return Self::handle_text_buffer_action(
-                        &mut t.text_buffer,
-                        Action::MoveCursor,
-                        ActionScope::BufferEnd,
-                    );
-                } else {
-                    return Self::handle_text_buffer_action(
-                        &mut t.text_buffer,
-                        Action::MoveCursor,
-                        ActionScope::ForwardLine,
-                    );
-                }
+                _ => {}
             }
         };
         ToolUpdateResult::Unmodified
@@ -960,8 +923,10 @@ impl Tool for TextTool {
                             } else if event.n_pressed == 3 {
                                 let mut start_itr = cursur_iter;
                                 let mut end_itr = start_itr;
-                                start_itr.backward_sentence_start();
-                                end_itr.forward_sentence_end();
+                                while !start_itr.is_start() {
+                                    start_itr.backward_line();
+                                }
+                                end_itr.forward_to_end();
                                 t.text_buffer.select_range(&start_itr, &end_itr);
                             }
 
@@ -1047,6 +1012,7 @@ enum ActionScope {
     SelectAll,
     BufferStart,
     BufferEnd,
+    None,
 }
 
 enum Action {
@@ -1249,18 +1215,17 @@ impl TextTool {
                     ActionScope::SelectAll => {
                         start_cursor_itr_new = text_buffer.start_iter();
                         end_cursor_itr = text_buffer.end_iter();
-                        text_buffer
-                            .select_range(&start_cursor_itr_new, &end_cursor_itr);
+                        text_buffer.select_range(&start_cursor_itr_new, &end_cursor_itr);
                     }
                     _ => {}
                 }
 
-                eprintln!(
-                    "{:?} {:?} {:?}",
-                    text_buffer.selection_content(),
-                    start_cursor_itr_new.offset(),
-                    end_cursor_itr.offset()
-                );
+                // eprintln!(
+                //     "{:?} {:?} {:?}",
+                //     text_buffer.selection_content(),
+                //     start_cursor_itr_new.offset(),
+                //     end_cursor_itr.offset()
+                // );
 
                 if end_cursor_itr != start_cursor_itr_new {
                     ToolUpdateResult::Redraw
