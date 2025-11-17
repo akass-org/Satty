@@ -775,6 +775,13 @@ impl Tool for TextTool {
         if let Some(t) = &mut self.text {
             match event {
                 TextEventMsg::Commit(text) => {
+                    //delete selection
+                    Self::handle_text_buffer_action(
+                        &mut t.text_buffer,
+                        Action::Delete,
+                        ActionScope::None,
+                    );
+                    //update input text
                     t.preedit = None;
                     t.text_buffer.insert_at_cursor(&text);
                     ToolUpdateResult::Redraw
@@ -1061,7 +1068,7 @@ impl Tool for TextTool {
     fn handle_mouse_event(&mut self, event: MouseEventMsg) -> ToolUpdateResult {
         match event.type_ {
             MouseEventType::Click => {
-                eprintln!("click event : {:?}", event.button);
+                // eprintln!("click event : {:?}", event.button);
                 if event.button == MouseButton::Primary {
                     let pos = event.pos;
                     if let Some(t) = &mut self.text {
@@ -1177,7 +1184,7 @@ impl Tool for TextTool {
                             for line in glyphs.iter() {
                                 index = 0;
                                 for glyph in line.iter() {
-                                    eprintln!("===== rect {:?} : {:?}", glyph, event.pos);
+                                    // eprintln!("===== rect {:?} : {:?}", glyph, event.pos);
                                     if glyph
                                         .contains_point(global_pos.x as i32, global_pos.y as i32)
                                     {
