@@ -369,7 +369,7 @@ impl Drawable for Text {
                 &layout_context,
                 cursor_metrics,
                 display.cursor_byte_pos,
-                *cursor_visible
+                *cursor_visible,
             );
         }
 
@@ -971,6 +971,26 @@ impl Tool for TextTool {
                     });
 
                     return ToolUpdateResult::Unmodified;
+                }
+                Key::c | Key::C => {
+                    if event
+                        .modifier
+                        .contains(ModifierType::CONTROL_MASK | ModifierType::SHIFT_MASK)
+                    {
+                        if let Some(text) = &self.text {
+                            let buffer = text.text_buffer.clone();
+                            if let Some((start, end)) = buffer.selection_bounds() {
+                                let selected_text = buffer.text(&start, &end, false);
+                                let display = DisplayManager::get().default_display();
+                                if display.is_none() {
+                                    eprintln!("Cannot open default display for clipboard.");
+                                    return ToolUpdateResult::Unmodified;
+                                }
+                                let clipboard = display.unwrap().clipboard();
+                                clipboard.set_text(&selected_text);
+                            }
+                        }
+                    }
                 }
                 Key::Insert => {
                     let display = DisplayManager::get().default_display();
