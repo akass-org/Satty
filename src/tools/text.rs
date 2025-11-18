@@ -18,7 +18,6 @@ use crate::{
 
 use super::{Drawable, DrawableClone, InputContext, Tool, ToolUpdateResult, Tools};
 use crate::sketch_board::SketchBoardInput;
-use crate::tools::text;
 use relm4::gtk::gdk::DisplayManager;
 use relm4::Sender;
 use std::cell::RefCell;
@@ -233,19 +232,15 @@ impl Drawable for Text {
             let sel_end = sel_end_iter.offset() as usize;
 
             for line in &line_layouts {
-                // let line_text = &layout_context.text[line.range.clone()]; // UTF-8 slice
                 let start_index = text[..line.range.start].chars().count();
                 let end_index = text[..line.range.end].chars().count();
-
-                // eprintln!("line range {:?} {:?}", start_index, end_index);
 
                 let overlap_start = sel_start.max(start_index);
                 let overlap_end = sel_end.min(end_index);
                 if overlap_start >= overlap_end {
-                    continue; // 这一行没有选区
+                    continue;
                 }
 
-                // 计算选区在行内的 x 坐标
                 let segments = self.segments_for_line_span(
                     canvas,
                     &layout_context,
@@ -262,7 +257,7 @@ impl Drawable for Text {
                     let w = end_x - start_x;
 
                     path.rect(x, y, w, h);
-                    let mut paint = Paint::color(Color::rgbaf(0.3, 0.5, 1.0, 0.3)); // 半透明蓝色
+                    let mut paint = Paint::color(Color::rgbaf(0.3, 0.5, 1.0, 0.3)); // transparent blue
                     paint.set_anti_alias(true);
                     canvas.fill_path(&path, &paint);
                 }
@@ -273,14 +268,13 @@ impl Drawable for Text {
             *cursor_visible = true;
         }
 
+        //calculate rect and glyphs
         let mut draw_baseline = self.pos.y;
         let mut rect = self.rect.borrow_mut();
         let mut glyphs = self.glyphs.borrow_mut();
 
         glyphs.clear();
         {
-            // let sel_start = self.text_buffer.start_iter().offset() as usize;
-            // let sel_end = self.text_buffer.end_iter().offset() as usize;
             let mut top = 0;
             let mut left = 0;
             let mut width = 0;
@@ -288,32 +282,21 @@ impl Drawable for Text {
 
             for line in &line_layouts {
                 let mut line_glyphs = Vec::new();
-                // eprintln!("line: {:?}", line.range);
 
                 let start = text[..line.range.start].chars().count();
                 let end = text[..line.range.end].chars().count();
 
                 for i in start..end {
-                    // eprintln!("draw char {} {}", i, i + 1);
-                    // 计算选区在行内的 x 坐标
                     let segments =
                         self.segments_for_line_span(canvas, &layout_context, line, i..i + 1);
 
                     for (start_x, end_x) in segments {
-                        // let mut path = Path::new();
-                        // let top = line.baseline + cursor_metrics.top_offset;
-                        // path.rect(start_x, top, end_x - start_x, cursor_metrics.height);
-                        // let mut paint = Paint::color(Color::rgbaf(0.3, 0.5, 1.0, 0.3)); // 半透明蓝色
-                        // paint.set_anti_alias(true);
-                        // canvas.fill_path(&path, &paint);
                         let offset_y = cursor_metrics.height * 0.1;
                         let y = (line.baseline + cursor_metrics.top_offset + offset_y) as i32;
                         let h = cursor_metrics.height as i32;
                         let x = start_x as i32;
                         let w = (end_x - start_x) as i32;
                         line_glyphs.push(Rectangle::new(x, y, w, h));
-
-                        // eprintln!("calculate {:?} - {:?} - {:?} - {:?}", x, y, w, h);
 
                         if top == 0 {
                             top = y;
@@ -323,7 +306,6 @@ impl Drawable for Text {
                             left = x;
                         }
 
-                        // eprintln!("end {end_x}");
                         width = (end_x as i32 - left).max(width);
                         height = y + h - top;
                     }
@@ -348,7 +330,7 @@ impl Drawable for Text {
             let w = rect.width() as f32;
 
             rect_paint.rect(x, y, w, h);
-            let mut paint = Paint::color(Color::rgbaf(1.0, 0.5, 0.3, 0.3)); // 半透明黄色
+            let mut paint = Paint::color(Color::rgbaf(1.0, 0.5, 0.3, 0.3)); // transparent orange
             paint.set_anti_alias(true);
             paint.set_line_width(2.0);
             canvas.stroke_path(&rect_paint, &paint);
@@ -363,8 +345,6 @@ impl Drawable for Text {
             )?;
             draw_baseline += line_height;
         }
-
-        // eprintln!("rect: {:?}, glyphs: {:?}", rect, glyphs);
 
         if self.editing {
             if let (Some(preedit), Some(preedit_range)) = (&self.preedit, &display.preedit_range) {
@@ -556,18 +536,13 @@ impl Text {
         canvas: &mut femtovg::Canvas<femtovg::renderer::OpenGl>,
         context: &TextDrawingContext<'_>,
         line: &LineLayout,
-        range: Range<usize>, // 字符索引
+        range: Range<usize>,
     ) -> Vec<(f32, f32)> {
         if range.start >= range.end {
             return Vec::new();
         }
 
-        // let text = context.text.replace("\n", "")
-        let chars_without_newline: Vec<(usize, char)> = context
-            .text
-            .char_indices()
-            // .filter(|(_, c)| *c != '\n')
-            .collect();
+        let chars_without_newline: Vec<(usize, char)> = context.text.char_indices().collect();
 
         let range_start_byte = chars_without_newline
             .get(range.start)
@@ -584,10 +559,6 @@ impl Text {
         let overlap_start = range_start_byte.max(line_start).min(line_end);
         let overlap_end = range_end_byte.max(line_start).min(line_end);
 
-        // eprintln!(
-        //     "overlap check {:?} {:?} at {:?} {:?}",
-        //     overlap_start, overlap_end, range_start_byte, range_end_byte
-        // );
         if overlap_start >= overlap_end {
             return Vec::new();
         }
@@ -597,14 +568,9 @@ impl Text {
         let start_byte = overlap_start.saturating_sub(line_start);
         let end_byte = overlap_end.saturating_sub(line_start);
 
-        // eprintln!("start .. end = {} .. {}", start_byte, end_byte);
-
         let prefix = &line_text[..start_byte];
         let selected = &line_text[start_byte..end_byte].replace("\n", "");
 
-        // eprintln!("selected str {}", selected);
-
-        // 计算 x 坐标和宽度
         let start_x: f32 = self.pos.x + Self::text_width(canvas, context.paint, prefix);
         let width = Self::text_width(canvas, context.paint, selected);
 
@@ -813,16 +779,12 @@ impl Tool for TextTool {
 
     fn handle_key_event(&mut self, event: KeyEventMsg) -> ToolUpdateResult {
         if let Some(t) = &mut self.text {
-            // eprintln!("key event : {:?}", event);
             match event.key {
                 Key::Return => match event.modifier {
                     ModifierType::SHIFT_MASK => {
                         //delete selection
                         Self::handle_text_buffer_action(t, Action::Delete, ActionScope::None);
-
                         t.text_buffer.insert_at_cursor("\n");
-                        // t.text_buffer
-                        //     .select_range(&t.text_buffer.end_iter(), &t.text_buffer.end_iter());
                         return ToolUpdateResult::Redraw;
                     }
                     _ => {
@@ -963,17 +925,14 @@ impl Tool for TextTool {
                     let clipboard = display.unwrap().clipboard();
                     let buffer = t.text_buffer.clone();
 
-                    // eprintln!("TextTool: paste");
-
                     Self::handle_text_buffer_action(t, Action::Delete, ActionScope::None);
 
                     let sender = self.sender.clone();
 
+                    //async clipboard read
                     glib::MainContext::default().spawn_local(async move {
                         match clipboard.read_text_future().await {
                             Ok(Some(text)) => {
-                                // eprintln!("paste text: {}", text);
-                                // text: GString
                                 buffer.insert_at_cursor(&text);
                                 if let Some(sender) = sender {
                                     sender.emit(SketchBoardInput::Refresh);
@@ -999,13 +958,41 @@ impl Tool for TextTool {
                             let buffer = text.text_buffer.clone();
                             if let Some((start, end)) = buffer.selection_bounds() {
                                 let selected_text = buffer.text(&start, &end, false);
+
                                 let display = DisplayManager::get().default_display();
                                 if display.is_none() {
                                     eprintln!("Cannot open default display for clipboard.");
                                     return ToolUpdateResult::Unmodified;
                                 }
+
                                 let clipboard = display.unwrap().clipboard();
                                 clipboard.set_text(&selected_text);
+                            }
+                        }
+                    }
+                }
+                Key::x | Key::X => {
+                    if event.modifier == ModifierType::CONTROL_MASK {
+                        if let Some(text) = &mut self.text {
+                            let buffer = text.text_buffer.clone();
+                            if let Some((start, end)) = buffer.selection_bounds() {
+                                let selected_text = buffer.text(&start, &end, false);
+
+                                let display = DisplayManager::get().default_display();
+                                if display.is_none() {
+                                    eprintln!("Cannot open default display for clipboard.");
+                                    return ToolUpdateResult::Unmodified;
+                                }
+
+                                let clipboard = display.unwrap().clipboard();
+                                clipboard.set_text(&selected_text);
+
+                                Self::handle_text_buffer_action(
+                                    text,
+                                    Action::Delete,
+                                    ActionScope::None,
+                                );
+                                return ToolUpdateResult::Redraw;
                             }
                         }
                     }
@@ -1026,8 +1013,6 @@ impl Tool for TextTool {
                     glib::MainContext::default().spawn_local(async move {
                         match selection_clipboard.read_text_future().await {
                             Ok(Some(text)) => {
-                                eprintln!("paste text: {}", text);
-                                // text: GString
                                 buffer.insert_at_cursor(&text);
                                 if let Some(sender) = sender {
                                     sender.emit(SketchBoardInput::Refresh);
@@ -1053,12 +1038,10 @@ impl Tool for TextTool {
     fn handle_mouse_event(&mut self, event: MouseEventMsg) -> ToolUpdateResult {
         match event.type_ {
             MouseEventType::Click => {
-                // eprintln!("click event : {:?}", event.button);
                 if event.button == MouseButton::Primary {
                     let pos = event.pos;
                     if let Some(t) = &mut self.text {
                         let rect = t.rect.borrow();
-                        // eprintln!("===== rect {:?} : {:?}", rect, event.pos);
                         if rect.contains_point(pos.x as i32, pos.y as i32) {
                             //calculate text cursor position
                             let mut index = 0;
@@ -1068,9 +1051,7 @@ impl Tool for TextTool {
                             for line in 0..glyphs.len() {
                                 let line_rect = glyphs.get(line).unwrap();
 
-                                // let line = glyphs.get(line).unwrap();
                                 for glyph in line_rect.iter() {
-                                    // eprintln!("===== rect {:?} : {:?}", glyph, event.pos);
                                     if glyph.contains_point(pos.x as i32, pos.y as i32) {
                                         find_index = true;
                                         if pos.x > glyph.x() as f32 + glyph.width() as f32 / 2.0 {
@@ -1163,7 +1144,6 @@ impl Tool for TextTool {
                             let glyphs = t.glyphs.borrow();
                             for line in glyphs.iter() {
                                 for glyph in line.iter() {
-                                    // eprintln!("===== rect {:?} : {:?}", glyph, global_pos);
                                     if glyph
                                         .contains_point(global_pos.x as i32, global_pos.y as i32)
                                     {
@@ -1376,7 +1356,6 @@ impl TextTool {
                                         (end - start) as i32
                                     } else {
                                         let temp = current_offset - start as i32;
-                                        // current_offset - start as i32
                                         let next_start = content
                                             [..ranges.get(i + 1).unwrap().start]
                                             .chars()
@@ -1386,7 +1365,6 @@ impl TextTool {
                                             .count();
 
                                         let limit = (next_end - next_start) as i32;
-                                        // eprintln!("temp {} {limit}", temp);
                                         if temp > limit {
                                             limit
                                         } else {
@@ -1406,11 +1384,6 @@ impl TextTool {
                             }
 
                             let move_offset = next_line + offset;
-
-                            eprintln!(
-                                "move_offset: {} next_line: {} offset: {} current_line_offset: {}",
-                                move_offset, next_line, offset, current_offset
-                            );
 
                             cursor_itr.set_offset(move_offset);
                         }
@@ -1453,7 +1426,6 @@ impl TextTool {
                                             .count();
 
                                         let limit = (last_end - last_start) as i32;
-                                        // eprintln!("temp {} {limit}", temp);
                                         if temp > limit {
                                             limit
                                         } else {
@@ -1473,11 +1445,6 @@ impl TextTool {
                             }
 
                             let move_offset = last_line + offset;
-
-                            eprintln!(
-                                "move_offset: {} last_line: {} offset: {} current_line_offset: {}",
-                                move_offset, last_line, offset, current_offset
-                            );
 
                             cursor_itr.set_offset(move_offset);
                         }
@@ -1563,7 +1530,6 @@ impl TextTool {
                                         content[..ranges.get(i + 1).unwrap().end].chars().count();
 
                                     let limit = (next_end - next_start) as i32;
-                                    // eprintln!("temp {} {limit}", temp);
                                     if temp > limit {
                                         limit
                                     } else {
@@ -1582,11 +1548,6 @@ impl TextTool {
                         }
 
                         let move_offset = next_line + offset;
-
-                        // eprintln!(
-                        //     "move_offset: {} next_line: {} offset: {} current_line_offset: {}",
-                        //     move_offset, next_line, offset, current_offset
-                        // );
 
                         end_cursor_itr.set_offset(move_offset);
                     }
@@ -1619,7 +1580,6 @@ impl TextTool {
                                         content[..ranges.get(i - 1).unwrap().end].chars().count();
 
                                     let limit = (last_end - last_start) as i32;
-                                    // eprintln!("temp {} {limit}", temp);
                                     if temp > limit {
                                         limit
                                     } else {
@@ -1639,11 +1599,6 @@ impl TextTool {
 
                         let move_offset = last_line + offset;
 
-                        // eprintln!(
-                        //     "move_offset: {} last_line: {} offset: {} current_line_offset: {}",
-                        //     move_offset, last_line, offset, current_line_offset
-                        // );
-
                         end_cursor_itr.set_offset(move_offset);
                     }
                     ActionScope::ForwardWord => {
@@ -1659,13 +1614,6 @@ impl TextTool {
                     _ => {}
                 }
                 text_buffer.select_range(&start_cursor_itr_new, &end_cursor_itr);
-
-                // eprintln!(
-                //     "{:?} {:?} {:?}",
-                //     text_buffer.selection_content(),
-                //     start_cursor_itr_new.offset(),
-                //     end_cursor_itr.offset()
-                // );
 
                 ToolUpdateResult::Redraw
             }

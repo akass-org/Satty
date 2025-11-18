@@ -1358,7 +1358,7 @@ dependencies = [
 
 [[package]]
 name = "satty"
-version = "0.20.0-458a933"
+version = "0.20.0-f9b6464"
 dependencies = [
  "anyhow",
  "chrono",
