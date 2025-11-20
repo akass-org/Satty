@@ -386,6 +386,18 @@ fn run_satty() -> Result<()> {
 
 fn main() -> Result<()> {
     let _ = *START_TIME;
+
+    // 检查版本参数
+    let args: Vec<String> = std::env::args().collect();
+    if args.len() > 1 && (args[1] == "--version" || args[1] == "-V") {
+        println!(
+            "satty {}-{}",
+            env!("CARGO_PKG_VERSION"),
+            get_commit_info().unwrap_or_else(|| "unknown".to_string())
+        );
+        std::process::exit(0);
+    }
+
     // populate the APP_CONFIG from commandline and
     // config file. this might exit, if an error occurred.
     Configuration::load();
@@ -405,4 +417,13 @@ fn main() -> Result<()> {
         }
         Ok(v) => Ok(v),
     }
+}
+
+fn get_commit_info() -> Option<String> {
+    std::process::Command::new("git")
+        .args(["rev-parse", "--short", "HEAD"])
+        .output()
+        .ok()
+        .and_then(|output| String::from_utf8(output.stdout).ok())
+        .map(|s| s.trim().to_string())
 }
