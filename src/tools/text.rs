@@ -780,7 +780,6 @@ impl Tool for TextTool {
     }
 
     fn handle_key_event(&mut self, event: KeyEventMsg) -> ToolUpdateResult {
-        let mut stop_propagation = ToolUpdateResult::StopPropagation;
         if let Some(t) = &mut self.text {
             match event.key {
                 Key::Return => match event.modifier {
@@ -1027,12 +1026,10 @@ impl Tool for TextTool {
                         });
                     }
                 }
-                _ => {
-                    stop_propagation = ToolUpdateResult::Unmodified;
-                }
+                _ => {}
             }
         };
-        stop_propagation
+        ToolUpdateResult::Unmodified
     }
 
     fn handle_mouse_event(&mut self, event: MouseEventMsg) -> ToolUpdateResult {
@@ -1248,8 +1245,12 @@ impl Tool for TextTool {
             t.preedit = None;
             t.editing = false;
             t.im_context = None;
+            t.text_buffer
+                .select_range(&t.text_buffer.start_iter(), &t.text_buffer.start_iter());
+            *t.draw_rect.borrow_mut() = false;
             let result = t.clone_box();
             self.text = None;
+            self.input_enabled = false;
             ToolUpdateResult::Commit(result)
         } else {
             ToolUpdateResult::Unmodified
