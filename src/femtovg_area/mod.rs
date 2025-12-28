@@ -103,7 +103,6 @@ impl FemtoVGArea {
             .set_zoom_scale(factor, false);
         //trigger resize to recalculate zoom
         self.imp().resize(0, 0);
-        // self.store_last_offset();
     }
 
     pub fn set_pointer_offset(&self, offset: Vec2D) {
@@ -151,6 +150,7 @@ impl FemtoVGArea {
             .as_mut()
             .expect("Did you call init before using FemtoVgArea?")
             .reset_drag_offset();
+        //trigger resize to reset
         self.imp().resize(0, 0);
     }
 }

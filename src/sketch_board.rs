@@ -41,6 +41,7 @@ pub enum SketchBoardInput {
 pub enum SketchBoardOutput {
     ToggleToolbarsDisplay,
     ToolSwitchShortcut(Tools),
+    ColorSwitchShortcut(u64),
 }
 
 #[derive(Debug, Clone)]
@@ -685,6 +686,21 @@ impl SketchBoard {
                     sender
                         .output_sender()
                         .emit(SketchBoardOutput::ToolSwitchShortcut(tool));
+                } else if let Some(hotkey_digit) =
+                    txt.chars().next().and_then(|char| char.to_digit(10))
+                {
+                    let index_digit = if hotkey_digit == 0 {
+                        9
+                    } else {
+                        hotkey_digit - 1
+                    };
+                    if APP_CONFIG.read().color_palette().palette().len()
+                        >= (index_digit + 1) as usize
+                    {
+                        sender
+                            .output_sender()
+                            .emit(SketchBoardOutput::ColorSwitchShortcut(index_digit as u64));
+                    }
                 }
             }
             TextEventMsg::Preedit {
@@ -923,6 +939,8 @@ impl Component for SketchBoard {
                                 self.renderer
                                     .request_render(&APP_CONFIG.read().actions_on_right_click());
                                 ToolUpdateResult::Unmodified
+                            } else if ke.modifier.is_empty() && ke.key == Key::Delete {
+                                self.handle_reset()
                             } else if ke.modifier.is_empty()
                                 && (ke.key == Key::Escape
                                     || ke.key == Key::Return
@@ -938,7 +956,6 @@ impl Component for SketchBoard {
                                     };
                                     self.renderer.request_render(&actions);
                                 };
-                                // println!("tool result {:?}",result);
                                 active_tool_result
                             } else {
                                 active_tool_result
@@ -1106,7 +1123,7 @@ impl KeyEventMsg {
     /// And the key has more priority over keycode.
     fn is_one_of(&self, key: Key, code: KeyMappingId) -> bool {
         // INFO: on linux the keycode from gtk4 is evdev keycode, so need to match by him if need
-        // to use layout-independent shortcuts. And notice that there is substraction by 8, it's
+        // to use layout-independent shortcuts. And notice that there is subtraction by 8, it's
         // because of x11 compatibility in which the keycodes are in range [8,255]. So need shift
         // them to get correct evdev keycode.
         let keymap = KeyMap::from(code);
